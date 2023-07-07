@@ -225,14 +225,12 @@ size_t ReceiveTCPStream(Registers &registers, std::array<uint8_t, BufferSize> &M
     }
 
     const MBAPHead header = MBAPfromBytes(ModbusFrame.data());
-    // printf("TransactionID %u, ProtocolID %u, Length %u, UnitID %u, byteCount %u ", header.TransactionID, header.ProtocolID, header.Length, header.UnitID, byteCount);
     if (header.ProtocolID != 0 || header.Length + 6 > byteCount)
     {
         return 0;
     }
 
     const auto size = registers.ProcessStream(ModbusFrame.data() + 7);
-    // printf("size %u\n", size);
     ModbusFrame[5] = size + 1;
     return 7 + size;
 }

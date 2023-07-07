@@ -3,8 +3,8 @@
 #include <Arduino.h>
 #include <registers.h>
 
-#define ModbusSerial SerialUSB   // Map the serial port used for modbus
-const uint8_t ModbusAddress = 1; //
+#define ModbusSerial SerialUSB // Map the serial port used for modbus
+const uint8_t ModbusAddress = 1;
 
 void Initialize(long baud)
 {

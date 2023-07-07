@@ -54,7 +54,11 @@ private:
     Registers &registers;
 
 public:
-    StdTeenyModbusTCPServer(TCPServerInit ServerSettings, Registers &registers) : ClientTimeout{ServerSettings.ClientTimeout}, ShutdownTimeout{ServerSettings.ShutdownTimeout}, server(ServerSettings.ServerPort), registers{registers} {};
+    StdTeenyModbusTCPServer(TCPServerInit ServerSettings, Registers &registers)
+        : ClientTimeout{ServerSettings.ClientTimeout},
+          ShutdownTimeout{ServerSettings.ShutdownTimeout},
+          server(ServerSettings.ServerPort),
+          registers{registers} {};
     ~StdTeenyModbusTCPServer(){};
 
     void Initialize(TCPServerInit InitData)
@@ -96,7 +100,6 @@ public:
             if (bufferIndex <= ModbusFrame.size())
             {
                 ModbusFrame[bufferIndex] = state.client.read();
-                // printf("%02X ", ModbusFrame[bufferIndex]);
                 bufferIndex++;
             }
             else
@@ -108,11 +111,6 @@ public:
         const auto responseSize = ReceiveTCPStream(registers, ModbusFrame, bufferIndex);
         if (responseSize > 0)
         {
-            // for (auto iter = 0; iter < responseSize; iter++)
-            // {
-            //     printf("%02X ", ModbusFrame.at(iter));
-            // }
-            // printf("\n");
             state.client.writeFully(ModbusFrame.data(), responseSize);
             state.client.flush();
         }
