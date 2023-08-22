@@ -24,7 +24,7 @@ struct TCPServerInit
 
 struct ClientState
 {
-    ClientState(EthernetClient client)
+    explicit ClientState(EthernetClient client)
         : client(std::move(client)) {}
 
     EthernetClient client;
@@ -93,7 +93,7 @@ public:
     void processModbusClient(ClientState &state)
     {
         std::array<uint8_t, 256> ModbusFrame;
-        int bufferIndex = 0;
+        uint16_t bufferIndex = 0;
         while (state.client.available())
         {
             state.lastRead = millis();

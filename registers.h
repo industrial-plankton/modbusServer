@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <algorithm>
 #include <ModbusDataStructures.h>
 #include <FastCRC.h> // For RTU capability https://github.com/FrankBoesing/FastCRC, PlatformIO: frankboesing/FastCRC @ ^1.41
 
@@ -20,25 +21,20 @@ public:
         : FirstAddress{FirstAddress}, LastAddress{LastAddress}, FunctionList{FunctionList} {};
     ~Register(){};
 
-    virtual uint8_t *getDataLocation(uint16_t Address) const = 0;
-    virtual uint8_t getResponseByteCount(uint8_t RegistersCount) const = 0;
-    virtual void Write(uint16_t Address, uint8_t RegistersCount, uint8_t *dataBuffer) = 0;
-    virtual void WriteSingle(uint16_t Address, uint16_t value) = 0;
+    virtual uint8_t *getDataLocation(const uint16_t Address) const = 0;
+    virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) const = 0;
+    virtual void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) = 0;
+    virtual void WriteSingle(const uint16_t Address, const uint16_t value) = 0;
 
-    bool AddressInRange(uint16_t address) const
+    bool AddressInRange(const uint16_t address) const
     {
         return (FirstAddress <= address) && (address <= LastAddress);
     }
-    bool ValidFunctionCode(ModbusFunction FunctionCode) const
+    bool ValidFunctionCode(const ModbusFunction FunctionCode) const
     {
-        for (ModbusFunction func : FunctionList)
-        {
-            if (func == FunctionCode)
-            {
-                return true;
-            }
-        }
-        return false;
+        std::any_of(FunctionList.begin(), FunctionList.end(),
+                    [FunctionCode](const ModbusFunction func)
+                    { return func == FunctionCode; });
     }
 };
 
@@ -52,21 +48,21 @@ public:
         : Register(FirstAddress, LastAddress, FunctionList), data{data} {};
     ~CoilRegister(){};
 
-    uint8_t *getDataLocation(uint16_t Address) const
+    uint8_t *getDataLocation(const uint16_t Address) const override
     {
         return data + (Address - FirstAddress);
     }
-    uint8_t getResponseByteCount(uint8_t RegistersCount) const
+    uint8_t getResponseByteCount(const uint8_t RegistersCount) const override
     {
         return RegistersCount * sizeof(data[0]);
     }
-    void Write(uint16_t Address, uint8_t RegistersCount, uint8_t *dataBuffer)
+    void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
     {
         std::memcpy(data + (Address - FirstAddress),
                     dataBuffer,
                     getResponseByteCount(RegistersCount));
     }
-    void WriteSingle(uint16_t Address, uint16_t value)
+    void WriteSingle(const uint16_t Address, const uint16_t value) override
     {
         data[Address - FirstAddress] = static_cast<uint8_t>(value);
     }
@@ -85,15 +81,15 @@ public:
         : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true){};
     ~HoldingRegister(){};
 
-    uint8_t *getDataLocation(uint16_t Address) const
+    uint8_t *getDataLocation(const uint16_t Address) const override
     {
         return reinterpret_cast<uint8_t *>(data + (Address - FirstAddress));
     }
-    uint8_t getResponseByteCount(uint8_t RegistersCount) const
+    uint8_t getResponseByteCount(const uint8_t RegistersCount) const override
     {
         return RegistersCount * sizeof(data[0]);
     }
-    void Write(uint16_t Address, uint8_t RegistersCount, uint8_t *dataBuffer)
+    void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
     {
         if (ReceiveBigEndian)
         {
@@ -107,7 +103,7 @@ public:
                     dataBuffer,
                     getResponseByteCount(RegistersCount));
     }
-    void WriteSingle(uint16_t Address, uint16_t value)
+    void WriteSingle(const uint16_t Address, const uint16_t value) override
     {
         data[Address - FirstAddress] = ReceiveBigEndian ? byteSwap(value) : value;
     }
@@ -117,7 +113,7 @@ class Registers
 {
 private:
     const std::vector<Register *> RegisterList;
-    Register *getRegister(ModbusRequestPDU PDU) const
+    Register *getRegister(const ModbusRequestPDU PDU) const
     {
         for (Register *reg : RegisterList)
         {
@@ -129,31 +125,21 @@ private:
 
         return nullptr;
     }
-    bool ValidFunctionCode(ModbusFunction FunctionCode) const
+    bool ValidFunctionCode(const ModbusFunction FunctionCode) const
     {
-        for (Register *reg : RegisterList)
-        {
-            if (reg->ValidFunctionCode(FunctionCode))
-            {
-                return true;
-            }
-        }
-        return false;
+        return std::any_of(RegisterList.begin(), RegisterList.end(),
+                           [FunctionCode](const Register *reg)
+                           { return reg->ValidFunctionCode(FunctionCode); });
     }
 
-    bool ValidAddress(ModbusFunction FunctionCode, uint16_t address) const
+    bool ValidAddress(const ModbusFunction FunctionCode, const uint16_t address) const
     {
-        for (Register *reg : RegisterList)
-        {
-            if (reg->ValidFunctionCode(FunctionCode) && reg->AddressInRange(address))
-            {
-                return true;
-            }
-        }
-        return false;
+        return std::any_of(RegisterList.begin(), RegisterList.end(),
+                           [FunctionCode, address](const Register *reg)
+                           { return reg->ValidFunctionCode(FunctionCode) && reg->AddressInRange(address); });
     }
 
-    ModbusResponsePDU getErrorCode(ModbusRequestPDU PDU) const
+    ModbusResponsePDU getErrorCode(const ModbusRequestPDU PDU) const
     {
         ModbusResponsePDU response = {.FunctionCode = PDU.FunctionCode};
         if (!ValidFunctionCode(PDU.FunctionCode))
@@ -175,7 +161,7 @@ private:
     }
 
 public:
-    Registers(std::vector<Register *> RegisterList) : RegisterList{RegisterList} {};
+    explicit Registers(std::vector<Register *> RegisterList) : RegisterList{RegisterList} {};
     ~Registers(){};
     ModbusResponsePDU ProcessRequest(ModbusRequestPDU PDU)
     {
@@ -217,7 +203,7 @@ public:
 };
 
 template <std::size_t BufferSize>
-size_t ReceiveTCPStream(Registers &registers, std::array<uint8_t, BufferSize> &ModbusFrame, const uint8_t byteCount)
+size_t ReceiveTCPStream(Registers &registers, std::array<uint8_t, BufferSize> &ModbusFrame, const uint16_t byteCount)
 {
     if (byteCount <= 7 || byteCount > BufferSize)
     {

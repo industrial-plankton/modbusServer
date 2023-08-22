@@ -75,7 +75,7 @@ struct ModbusResponsePDU
 };
 
 // DataBuffer must be the beginning of the Request PDU as this relies on reusing data that will be unchanged. Returns response length for the MBAP header
-uint8_t ModbusResponsePDUtoStream(ModbusResponsePDU responseData, uint8_t *DataBuffer)
+uint8_t ModbusResponsePDUtoStream(const ModbusResponsePDU responseData, uint8_t *DataBuffer)
 {
     if (responseData.Error != NoError)
     {
@@ -104,7 +104,7 @@ struct MBAPHead
     uint8_t UnitID;
 };
 
-MBAPHead MBAPfromBytes(uint8_t header[7])
+MBAPHead MBAPfromBytes(const uint8_t header[7])
 {
     return MBAPHead{.TransactionID = CombineBytes(header[0], header[1]),
                     .ProtocolID = CombineBytes(header[2], header[3]),
@@ -112,7 +112,7 @@ MBAPHead MBAPfromBytes(uint8_t header[7])
                     .UnitID = header[6]};
 }
 
-void getMBAPBytes(MBAPHead MBAPHeader, uint8_t *bytes) // Primarily for testing, not normally used
+void getMBAPBytes(const MBAPHead MBAPHeader, uint8_t *bytes) // Primarily for testing, not normally used
 {
     SplitBytes(MBAPHeader.TransactionID, Big, bytes);
     SplitBytes(MBAPHeader.ProtocolID, Big, bytes + 2);
