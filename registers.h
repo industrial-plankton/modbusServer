@@ -32,9 +32,9 @@ public:
     }
     bool ValidFunctionCode(const ModbusFunction FunctionCode) const
     {
-        std::any_of(FunctionList.begin(), FunctionList.end(),
-                    [FunctionCode](const ModbusFunction func)
-                    { return func == FunctionCode; });
+        return std::any_of(FunctionList.begin(), FunctionList.end(),
+                           [FunctionCode](const ModbusFunction func)
+                           { return func == FunctionCode; });
     }
 };
 
