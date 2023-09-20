@@ -11,6 +11,27 @@
 
 using namespace qindesign::network;
 
+struct PotentialClient
+{
+    bool exists;
+    EthernetClient client;
+};
+
+class EthernetClientStream : public Stream
+{
+private:
+    EthernetClient &Client;
+
+public:
+    explicit EthernetClientStream(EthernetClient &client) : Client(client){};
+    ~EthernetClientStream(){};
+
+    int available() { return Client.available(); };
+    int read() { return Client.read(); };
+    int peek() { return Client.peek(); };
+    size_t write(uint8_t b) { return Client.write(b); };
+};
+
 struct TCPServerInit
 {
     uint16_t ServerPort;
@@ -171,6 +192,49 @@ public:
                                      [](const auto &state)
                                      { return state.closed; }),
                       clients.end());
+    }
+
+    PotentialClient GetUpdateClient()
+    {
+        // Process data from each client
+        for (ClientState &state : clients)
+        { // Use a reference so we don't copy
+            if (!state.client.connected())
+            {
+                state.closed = true;
+                continue;
+            }
+
+            // Check if we need to force close the client
+            if (state.outputClosed)
+            {
+                if (millis() - state.closedTime >= ShutdownTimeout)
+                {
+                    IPAddress ip = state.client.remoteIP();
+                    printf("Client shutdown timeout: %u.%u.%u.%u\r\n",
+                           ip[0], ip[1], ip[2], ip[3]);
+                    state.client.close();
+                    state.closed = true;
+                    continue;
+                }
+            }
+            else
+            {
+                if (millis() - state.lastRead >= ClientTimeout)
+                {
+                    IPAddress ip = state.client.remoteIP();
+                    printf("Client timeout: %u.%u.%u.%u\r\n", ip[0], ip[1], ip[2], ip[3]);
+                    state.client.close();
+                    state.closed = true;
+                    continue;
+                }
+            }
+        }
+        if (clients.empty())
+        {
+            return {.exists = false};
+        }
+        return {.exists = true, .client = clients.front().client};
     }
 };
 
