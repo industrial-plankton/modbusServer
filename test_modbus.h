@@ -14,7 +14,7 @@ void TestRequestByteTranslation(ModbusRequestPDU expectedPDU, ModbusRequestPDU p
     {
         TEST_ASSERT_EQUAL(expectedPDU.NumberOfRegisters, processedRequestPDU.NumberOfRegisters);
     }
-    // TEST_ASSERT_EQUAL(expectedPDU.Values, processedRequestPDU.Values); // Expected 537362036 Was 537362110
+    TEST_ASSERT_EQUAL(expectedPDU.Values[0], processedRequestPDU.Values[0]); // Expected 537362036 Was 537362110
 }
 
 void testWriteMultipleHoldingRegisters()
