@@ -15,7 +15,7 @@ void Initialize(long baud)
 
 void Process(Registers &registers)
 {
-    std::array<uint8_t, 128> ModbusFrame; // Should limit size to the same as the serial ring buffer
+    array<uint8_t, 128> ModbusFrame; // Should limit size to the same as the serial ring buffer
     uint16_t bufferIndex = 0;
 
     while (ModbusSerial.available() > 0)

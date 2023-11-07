@@ -1,14 +1,20 @@
 #ifndef H_ModBusRegisters_IP
 #define H_ModBusRegisters_IP
 
+#ifdef __AVR__
+#include <Array.h>    //https://github.com/janelia-arduino/Array
+#include <Vector.h>   //https://github.com/janelia-arduino/Vector
+#define array Array   // Make code invariant
+#define vector Vector // Make code invariant
+#else
 #include <vector>
 #include <array>
-#include <algorithm>
-using std::any_of;
 using std::array;
 using std::vector;
-#include <ModbusDataStructures.h>
+#endif
+
 #include <FastCRC.h> // For RTU capability https://github.com/FrankBoesing/FastCRC, PlatformIO: frankboesing/FastCRC @ ^1.41
+#include <ModbusDataStructures.h>
 
 class Register
 {
@@ -35,9 +41,14 @@ public:
     }
     bool ValidFunctionCode(const ModbusFunction FunctionCode) const
     {
-        return any_of(FunctionList.begin(), FunctionList.end(),
-                      [FunctionCode](const ModbusFunction func)
-                      { return func == FunctionCode; });
+        for (auto func : FunctionList)
+        {
+            if (func == FunctionCode)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 };
 
@@ -130,16 +141,26 @@ private:
     }
     bool ValidFunctionCode(const ModbusFunction FunctionCode) const
     {
-        return any_of(RegisterList.begin(), RegisterList.end(),
-                      [FunctionCode](const Register *reg)
-                      { return reg->ValidFunctionCode(FunctionCode); });
+        for (Register *reg : RegisterList)
+        {
+            if (reg->ValidFunctionCode(FunctionCode))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     bool ValidAddress(const ModbusFunction FunctionCode, const uint16_t address) const
     {
-        return any_of(RegisterList.begin(), RegisterList.end(),
-                      [FunctionCode, address](const Register *reg)
-                      { return reg->ValidFunctionCode(FunctionCode) && reg->AddressInRange(address); });
+        for (Register *reg : RegisterList)
+        {
+            if (reg->ValidFunctionCode(FunctionCode) && reg->AddressInRange(address))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     ModbusResponsePDU getErrorCode(const ModbusRequestPDU PDU) const
@@ -147,17 +168,17 @@ private:
         ModbusResponsePDU response = {.FunctionCode = PDU.FunctionCode};
         if (!ValidFunctionCode(PDU.FunctionCode))
         {
-            printf("IllegalFunction error on address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
+            // printf("IllegalFunction error on address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
             response.Error = ModbusError::IllegalFunction;
         }
         else if (!ValidAddress(PDU.FunctionCode, PDU.Address))
         {
-            printf("IllegalDataAddress error on address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
+            // printf("IllegalDataAddress error on address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
             response.Error = ModbusError::IllegalDataAddress;
         }
         else
         {
-            printf("SlaveDeviceFailure error on address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
+            // printf("SlaveDeviceFailure error on address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
             response.Error = ModbusError::SlaveDeviceFailure;
         }
         return response;
@@ -171,7 +192,7 @@ public:
         Register *reg = getRegister(PDU);
         if (reg == nullptr)
         {
-            printf("No valid register found for address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
+            // printf("No valid register found for address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
             return getErrorCode(PDU);
         }
 
@@ -194,7 +215,7 @@ public:
             reg->Write(PDU.Address, PDU.NumberOfRegisters, PDU.Values);
             break;
         default:
-            printf("IllegalFunction address: %u, and func code: %u", PDU.Address, (uint8_t)PDU.FunctionCode);
+            // printf("IllegalFunction address: %u, and func code: %u", PDU.Address, (uint8_t)PDU.FunctionCode);
             response.Error = ModbusError::IllegalFunction;
         }
         return response;
