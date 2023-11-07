@@ -1,8 +1,8 @@
 #ifndef H_ByteManipulation_IP
 #define H_ByteManipulation_IP
 
-#include <cstdint>
-#include <cstring>
+#include <stdint.h>
+#include <string.h>
 
 union converter
 {
@@ -49,7 +49,7 @@ uint8_t *SplitBytes(uint16_t integer, Endianness EndianDesired, uint8_t *Bytes)
     {
         integer = byteSwap(integer);
     }
-    std::memcpy(Bytes, &integer, 2);
+    memcpy(Bytes, &integer, 2);
     return Bytes;
 }
 #endif

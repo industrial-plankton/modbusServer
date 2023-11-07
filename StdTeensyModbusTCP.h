@@ -2,10 +2,9 @@
 #define H_StdTeenyModbus_IP
 
 #include <QNEthernet.h>
-// #include <cstdio>
 #include <utility>
 #include <algorithm>
-#include <cstdint>
+#include <stdint.h>
 #include <registers.h>
 #include <array>
 

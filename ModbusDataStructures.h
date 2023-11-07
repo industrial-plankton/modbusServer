@@ -1,9 +1,9 @@
 #ifndef H_ModbusDataStructures_IP
 #define H_ModbusDataStructures_IP
 
-#include <cstdint>
 #include <byteManipulation.h>
-#include <cstring>
+#include <stdint.h>
+#include <string.h>
 
 enum ModbusError : uint8_t
 {
@@ -87,9 +87,9 @@ uint8_t ModbusResponsePDUtoStream(const ModbusResponsePDU responseData, uint8_t 
     if (responseData.FunctionCode <= 4)
     {
         DataBuffer[1] = responseData.DataByteCount;
-        std::memcpy(DataBuffer + 2,
-                    responseData.RegisterValue,
-                    responseData.DataByteCount);
+        memcpy(DataBuffer + 2,
+               responseData.RegisterValue,
+               responseData.DataByteCount);
         return responseData.DataByteCount + 2;
     }
 
