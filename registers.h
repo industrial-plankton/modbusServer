@@ -13,7 +13,10 @@ using std::array;
 using std::vector;
 #endif
 
+#ifdef ModbusRTU
 #include <FastCRC.h> // For RTU capability https://github.com/FrankBoesing/FastCRC, PlatformIO: frankboesing/FastCRC @ ^1.41
+#endif
+
 #include <ModbusDataStructures.h>
 
 class Register
@@ -245,6 +248,7 @@ size_t ReceiveTCPStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
     return 7 + size;
 }
 
+#ifdef ModbusRTU
 template <size_t BufferSize>
 size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &ModbusFrame, const uint8_t byteCount)
 {
@@ -265,5 +269,6 @@ size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
 
     return size + 2;
 }
+#endif
 
 #endif

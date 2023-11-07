@@ -187,6 +187,7 @@ public:
             processModbusClient(state);
         }
 
+        // This looks stupid, but it's required as remove_if() doesn't shrink the vector
         clients.erase(std::remove_if(clients.begin(), clients.end(),
                                      [](const auto &state)
                                      { return state.closed; }),

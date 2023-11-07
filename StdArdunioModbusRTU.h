@@ -1,6 +1,7 @@
 #ifndef H_StdModbusRTU_IP
 #define H_StdModbusRTU_IP
 #include <Arduino.h>
+#define ModbusRTU
 #include <registers.h>
 
 #define ModbusSerial SerialUSB // Map the serial port used for modbus
