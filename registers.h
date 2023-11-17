@@ -19,6 +19,24 @@ using std::vector;
 
 #include <ModbusDataStructures.h>
 
+// Convert Modbus 984 address to array index, assumes you are using the correct array
+constexpr uint16_t M984(const long Address)
+{
+    if (Address >= 400001 && Address < 428673) // int
+    {
+        return Address - 400001;
+    }
+    else if (Address >= 428673) // Float
+    {
+        return (Address - 428673) / 2;
+    }
+    else if (Address >= 16385 && Address < 18345) // Bool
+    {
+        return Address - 16385;
+    }
+    return -1;
+}
+
 class Register
 {
 protected:
