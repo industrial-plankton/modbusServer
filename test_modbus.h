@@ -99,6 +99,70 @@ void testWriteFloats()
     TEST_ASSERT_EQUAL(5, responseByteCount);
 }
 
+void testReadCoils()
+{
+    std::array<bool, 2000> C = {};
+    CoilRegister Coils(0x4000, 0x47CF, std::vector<ModbusFunction>{ReadCoils, WriteSingleCoil, WriteMultipleCoils}, (uint8_t *)C.data());
+    Registers regs(std::vector<Register *>{&Coils});
+
+    auto &ResetAlarms = C.at(178);
+    ResetAlarms = 255;
+
+    ModbusRequestPDU reqPDU = {.FunctionCode = ModbusFunction::ReadCoils,
+                               .Address = 16562,
+                               .NumberOfRegisters = 88,
+                               .RegisterValue = 0,
+                               .DataByteCount = 0,
+                               .Values = nullptr};
+
+    uint8_t buffer[256] = {0};
+    getRequestBytes(reqPDU, buffer);
+    const ModbusRequestPDU processedRequestPDU = ParseRequestPDU(buffer);
+    const ModbusResponsePDU response = regs.ProcessRequest(processedRequestPDU);
+    uint8_t *valuesAsInt = reinterpret_cast<uint8_t *>(response.RegisterValue);
+    TEST_ASSERT_EQUAL(11, response.DataByteCount);
+    // TEST_ASSERT_EQUAL(true, valuesAsInt[((178 + 0x4000 - 16562) / 8) + 1]); // TODO  Finish this test
+}
+
+void testWriteCoils()
+{
+    bool LocalValues[3] = {false, true, false};
+    CoilRegister LocalHoldingRegister(17000, 17003, std::vector<ModbusFunction>{ModbusFunction::WriteSingleCoil}, reinterpret_cast<uint8_t *>(LocalValues));
+    Registers regs(std::vector<Register *>{&LocalHoldingRegister});
+
+    ModbusRequestPDU reqPDU = {.FunctionCode = ModbusFunction::WriteSingleCoil,
+                               .Address = 17002,
+                               .NumberOfRegisters = 1,
+                               .RegisterValue = 65280,
+                               //    .RegisterValue = 255,
+                               .DataByteCount = 0,
+                               .Values = nullptr};
+
+    uint8_t buffer[256] = {0};
+    getRequestBytes(reqPDU, buffer);
+
+    const ModbusRequestPDU processedRequestPDU = ParseRequestPDU(buffer);
+    const ModbusResponsePDU response = regs.ProcessRequest(processedRequestPDU);
+
+    ModbusRequestPDU reqPDU2 = {.FunctionCode = ModbusFunction::WriteSingleCoil,
+                                .Address = 17001,
+                                .NumberOfRegisters = 1,
+                                .RegisterValue = 0,
+                                .DataByteCount = 0,
+                                .Values = nullptr};
+
+    getRequestBytes(reqPDU2, buffer);
+
+    const ModbusRequestPDU processedRequestPDU2 = ParseRequestPDU(buffer);
+    const ModbusResponsePDU response2 = regs.ProcessRequest(processedRequestPDU2);
+    TEST_ASSERT_EQUAL(false, LocalValues[0]);
+    TEST_ASSERT_EQUAL(false, LocalValues[1]);
+    TEST_ASSERT_EQUAL(true, LocalValues[2]);
+
+    const uint8_t responseByteCount = ModbusResponsePDUtoStream(response2, buffer);
+    TEST_ASSERT_EQUAL(5, responseByteCount);
+}
+
 void test_LittleEndian()
 {
     TEST_ASSERT_EQUAL(Little, EndiannessTest()); // This will fail if the System is Big Endian
@@ -110,4 +174,6 @@ void TestModbus(void)
     RUN_TEST(testReadMultipleHoldingRegisters);
     RUN_TEST(testWriteFloats);
     RUN_TEST(test_LittleEndian);
+    RUN_TEST(testReadCoils);
+    RUN_TEST(testWriteCoils);
 }

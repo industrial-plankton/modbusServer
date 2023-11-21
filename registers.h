@@ -51,8 +51,8 @@ public:
         : FirstAddress{FirstAddress}, LastAddress{LastAddress}, FunctionList{FunctionList} {};
     ~Register(){};
 
-    virtual uint8_t *getDataLocation(const uint16_t Address) const = 0;
-    virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) const = 0;
+    virtual uint8_t *getDataLocation(const uint16_t Address) = 0;
+    virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) = 0;
     virtual void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) = 0;
     virtual void WriteSingle(const uint16_t Address, const uint16_t value) = 0;
 
@@ -77,19 +77,34 @@ class CoilRegister : public Register
 {
 private:
     uint8_t *data;
+    uint8_t CompressedData[13] = {0};
+    uint8_t ResponseByteCount = 0;
+
+    uint8_t CompressBoolean(uint8_t b[8])
+    {
+        uint8_t c = 0;
+        for (int i = 0; i < 8; i++)
+            if (b[i])
+                c |= (1 << i);
+        return c;
+    }
 
 public:
     CoilRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint8_t *data)
         : Register(FirstAddress, LastAddress, FunctionList), data{data} {};
     ~CoilRegister(){};
 
-    uint8_t *getDataLocation(const uint16_t Address) const override
+    uint8_t *getDataLocation(const uint16_t Address) override
     {
-        return data + (Address - FirstAddress);
+        for (int i = 0; i < ResponseByteCount; i++)
+        {
+            this->CompressedData[i] = CompressBoolean(&data[(Address - FirstAddress) + (8 * i)]);
+        }
+        return this->CompressedData;
     }
-    uint8_t getResponseByteCount(const uint8_t RegistersCount) const override
+    uint8_t getResponseByteCount(const uint8_t RegistersCount) override
     {
-        return RegistersCount * sizeof(data[0]);
+        return ResponseByteCount = RegistersCount / 8 + ((RegistersCount % 8) ? 1 : 0);
     }
     void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
     {
@@ -99,7 +114,7 @@ public:
     }
     void WriteSingle(const uint16_t Address, const uint16_t value) override
     {
-        data[Address - FirstAddress] = static_cast<uint8_t>(value);
+        data[Address - FirstAddress] = value > 0;
     }
 };
 
@@ -116,11 +131,11 @@ public:
         : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true){};
     ~HoldingRegister(){};
 
-    uint8_t *getDataLocation(const uint16_t Address) const override
+    uint8_t *getDataLocation(const uint16_t Address) override
     {
         return reinterpret_cast<uint8_t *>(data + (Address - FirstAddress));
     }
-    uint8_t getResponseByteCount(const uint8_t RegistersCount) const override
+    uint8_t getResponseByteCount(const uint8_t RegistersCount) override
     {
         return RegistersCount * sizeof(data[0]);
     }
@@ -222,6 +237,9 @@ public:
         {
         case ModbusFunction::ReadCoils:
         case ModbusFunction::ReadDiscreteInputs:
+            response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters); // first
+            response.RegisterValue = reg->getDataLocation(PDU.Address);
+            break;
         case ModbusFunction::ReadHoldingRegisters:
         case ModbusFunction::ReadInputRegisters:
             response.RegisterValue = reg->getDataLocation(PDU.Address);
