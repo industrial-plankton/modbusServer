@@ -41,9 +41,9 @@ class Register
 {
 protected:
     const uint16_t FirstAddress;
+    const uint16_t LastAddress;
 
 private:
-    const uint16_t LastAddress;
     const vector<ModbusFunction> FunctionList;
 
 public:
@@ -80,10 +80,10 @@ private:
     uint8_t CompressedData[13] = {0};
     uint8_t ResponseByteCount = 0;
 
-    uint8_t CompressBoolean(uint8_t b[8])
+    uint8_t CompressBoolean(uint8_t b[8], uint8_t limit = 8)
     {
         uint8_t c = 0;
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < limit; i++)
             if (b[i])
                 c |= (1 << i);
         return c;
@@ -96,9 +96,12 @@ public:
 
     uint8_t *getDataLocation(const uint16_t Address) override
     {
+        const auto AddressOffset = (Address - FirstAddress);
+        const auto PastLastAddress = AddressOffset + (8 * (ResponseByteCount - 1)) > Register::LastAddress;
         for (int i = 0; i < ResponseByteCount; i++)
         {
-            this->CompressedData[i] = CompressBoolean(&data[(Address - FirstAddress) + (8 * i)]);
+            this->CompressedData[i] = CompressBoolean(&data[AddressOffset + (8 * i)],
+                                                      PastLastAddress && i == ResponseByteCount - 1 ? (Address + (8 * i)) - Register::LastAddress : 8);
         }
         return this->CompressedData;
     }
@@ -237,11 +240,21 @@ public:
         {
         case ModbusFunction::ReadCoils:
         case ModbusFunction::ReadDiscreteInputs:
+            if (!reg->AddressInRange(PDU.Address + PDU.NumberOfRegisters - 1))
+            {
+                response.Error = ModbusError::IllegalDataAddress;
+                break;
+            }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters); // first
             response.RegisterValue = reg->getDataLocation(PDU.Address);
             break;
         case ModbusFunction::ReadHoldingRegisters:
         case ModbusFunction::ReadInputRegisters:
+            if (!reg->AddressInRange(PDU.Address + PDU.NumberOfRegisters - 1))
+            {
+                response.Error = ModbusError::IllegalDataAddress;
+                break;
+            }
             response.RegisterValue = reg->getDataLocation(PDU.Address);
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters);
             break;
