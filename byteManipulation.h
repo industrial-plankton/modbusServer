@@ -16,7 +16,7 @@ enum Endianness
     Little
 };
 
-Endianness EndiannessTest()
+constexpr Endianness EndiannessTest()
 {
     uint16_t TestValue = 1;
     return static_cast<Endianness>(reinterpret_cast<uint8_t *>(&TestValue)[0] == TestValue);
