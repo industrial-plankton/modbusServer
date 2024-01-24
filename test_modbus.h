@@ -102,7 +102,7 @@ void testWriteFloats()
 void testReadCoils()
 {
     std::array<bool, 2000> C = {};
-    CoilRegister Coils(0x4000, 0x47CF, std::vector<ModbusFunction>{ReadCoils, WriteSingleCoil, WriteMultipleCoils}, (uint8_t *)C.data());
+    CoilRegister Coils(0x4000, 0x47CF, std::vector<ModbusFunction>{ModbusFunction::ReadCoils, ModbusFunction::WriteSingleCoil, ModbusFunction::WriteMultipleCoils}, (uint8_t *)C.data());
     Registers regs(std::vector<Register *>{&Coils});
 
     auto &ResetAlarms = C.at(178);

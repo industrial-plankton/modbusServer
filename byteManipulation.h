@@ -1,8 +1,8 @@
 #ifndef H_ByteManipulation_IP
 #define H_ByteManipulation_IP
 
-#include <stdint.h>
-#include <string.h>
+#include <stdint.h> // uintX_t
+#include <string.h> // memcpy()
 
 union converter
 {

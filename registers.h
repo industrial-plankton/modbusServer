@@ -13,10 +13,6 @@ using std::array;
 using std::vector;
 #endif
 
-#ifdef ModbusRTU
-#include <FastCRC.h> // For RTU capability https://github.com/FrankBoesing/FastCRC, PlatformIO: frankboesing/FastCRC @ ^1.41
-#endif
-
 #include <ModbusDataStructures.h>
 
 // Convert Modbus 984 address to array index, assumes you are using the correct array
@@ -79,15 +75,6 @@ private:
     uint8_t *data;
     uint8_t CompressedData[13] = {0};
     uint8_t ResponseByteCount = 0;
-
-    uint8_t CompressBoolean(uint8_t b[8], uint8_t limit = 8)
-    {
-        uint8_t c = 0;
-        for (int i = 0; i < limit; i++)
-            if (b[i])
-                c |= (1 << i);
-        return c;
-    }
 
 public:
     CoilRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint8_t *data)
@@ -301,14 +288,7 @@ size_t ReceiveTCPStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
 template <size_t BufferSize>
 size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &ModbusFrame, const uint8_t byteCount)
 {
-    if (byteCount <= 7 || byteCount > BufferSize)
-    {
-        return 0;
-    }
-
-    FastCRC16 CRC16;
-    if (CRC16.modbus(ModbusFrame.data(), byteCount - 2) !=
-        CombineBytes(ModbusFrame.data()[byteCount - 1], ModbusFrame.data()[byteCount - 2]))
+    if (byteCount <= 7 || byteCount > BufferSize || !CRC16Check(ModbusFrame.data(), byteCount))
     {
         return 0;
     }

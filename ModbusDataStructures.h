@@ -2,8 +2,15 @@
 #define H_ModbusDataStructures_IP
 
 #include <byteManipulation.h>
-#include <stdint.h>
-#include <string.h>
+#include <stdint.h> // uintX_t
+#include <string.h> // memcpy()
+
+#ifdef ModbusRTU
+#include <FastCRC.h> // For RTU capability https://github.com/FrankBoesing/FastCRC, PlatformIO: frankboesing/FastCRC @ ^1.41
+#endif
+
+uint8_t CompressBoolean(uint8_t b[8], uint8_t limit = 8);
+bool CRC16Check(uint8_t *data, uint8_t byteCount);
 
 enum ModbusError : uint8_t
 {
@@ -13,6 +20,7 @@ enum ModbusError : uint8_t
     IllegalDataValue,
     SlaveDeviceFailure,
     SlaveDeviceBusy,
+    CRCError = 12,
 };
 
 enum ModbusFunction : uint8_t
@@ -48,7 +56,7 @@ ModbusRequestPDU ParseRequestPDU(uint8_t *data)
         .Values = data + 6};
 }
 
-void getRequestBytes(ModbusRequestPDU PDU, uint8_t *bytesBuffer) // Primarily for testing, not normally used
+void getRequestBytes(ModbusRequestPDU PDU, uint8_t *bytesBuffer) // Primarily for testing, not normally used //TODO consider implementing WriteCoils Byte compression
 {
     bytesBuffer[0] = PDU.FunctionCode;
     SplitBytes(PDU.Address, Big, bytesBuffer + 1);
@@ -64,18 +72,89 @@ void getRequestBytes(ModbusRequestPDU PDU, uint8_t *bytesBuffer) // Primarily fo
     memcpy(bytesBuffer + 6, PDU.Values, PDU.DataByteCount);
 }
 
+uint8_t getRequestByteLength(ModbusRequestPDU PDU)
+{
+    return 5 + PDU.DataByteCount;
+}
+
 struct ModbusResponsePDU
 {
-    ModbusFunction FunctionCode;
-    // uint16_t Address; // Unchanged from request PDU
-    uint8_t DataByteCount;
-    // uint16_t NumberOfRegistersChanged; // Unchanged from request PDU
-    uint8_t *RegisterValue;
+    ModbusFunction FunctionCode = ModbusFunction::ReadCoils;
+    uint16_t Address = 0; // Unchanged from request PDU
+    uint8_t DataByteCount = 0;
+    uint16_t NumberOfRegistersChanged = 0; // Unchanged from request PDU
+    uint8_t *RegisterValue = nullptr;
     ModbusError Error = NoError;
 };
 
+ModbusResponsePDU CreateErroredResponse(ModbusError Error)
+{
+    return ModbusResponsePDU{.FunctionCode = ModbusFunction::ReadCoils,
+                             .Address = 0,
+                             .DataByteCount = 0,
+                             .NumberOfRegistersChanged = 0,
+                             .RegisterValue = 0,
+                             .Error = Error};
+}
+
+ModbusResponsePDU ParseResponsePDU(uint8_t *data, uint8_t byteCount)
+{
+    if (!CRC16Check(data, byteCount))
+    {
+        return CreateErroredResponse(ModbusError::CRCError);
+    }
+    else if (data[0] & 0b10000000)
+    {
+        return CreateErroredResponse(static_cast<ModbusError>(data[1]));
+    };
+
+    ModbusFunction code = static_cast<ModbusFunction>(data[0]);
+    switch (code)
+    {
+    case ModbusFunction::ReadCoils:
+    case ModbusFunction::ReadDiscreteInputs:
+    case ModbusFunction::ReadHoldingRegisters:
+    case ModbusFunction::ReadInputRegisters:
+        return ModbusResponsePDU{
+            .FunctionCode = code,
+            .Address = 0,
+            .DataByteCount = data[1],
+            .NumberOfRegistersChanged = 0,
+            .RegisterValue = data + 2,
+            .Error = NoError};
+        break;
+
+    case ModbusFunction::WriteSingleCoil:
+    case ModbusFunction::WriteSingleHoldingRegister:
+        return ModbusResponsePDU{
+            .FunctionCode = code,
+            .Address = CombineBytes(data[1], data[2]),
+            .DataByteCount = 0,
+            .NumberOfRegistersChanged = 1,
+            .RegisterValue = data + 3,
+            .Error = NoError};
+        break;
+
+    case ModbusFunction::WriteMultipleCoils:
+    case ModbusFunction::WriteMultipleHoldingRegisters:
+        return ModbusResponsePDU{
+            .FunctionCode = code,
+            .Address = CombineBytes(data[1], data[2]),
+            .DataByteCount = 0,
+            .NumberOfRegistersChanged = CombineBytes(data[3], data[4]),
+            .RegisterValue = 0,
+            .Error = NoError};
+        break;
+
+    default:
+        return CreateErroredResponse(ModbusError::IllegalFunction);
+        break;
+    }
+}
+
 // DataBuffer must be the beginning of the Request PDU as this relies on reusing data that will be unchanged. Returns response length for the MBAP header
-uint8_t ModbusResponsePDUtoStream(const ModbusResponsePDU responseData, uint8_t *DataBuffer)
+uint8_t
+ModbusResponsePDUtoStream(const ModbusResponsePDU responseData, uint8_t *DataBuffer)
 {
     if (responseData.Error != NoError)
     {
@@ -120,4 +199,18 @@ void getMBAPBytes(const MBAPHead MBAPHeader, uint8_t *bytes) // Primarily for te
     bytes[6] = MBAPHeader.UnitID;
 }
 
+bool CRC16Check(uint8_t *data, uint8_t byteCount)
+{
+    FastCRC16 CRC16;
+    return (CRC16.modbus(data, byteCount - 2) == CombineBytes(data[byteCount - 1], data[byteCount - 2]));
+}
+
+uint8_t CompressBoolean(uint8_t b[8], uint8_t limit = 8)
+{
+    uint8_t c = 0;
+    for (int i = 0; i < limit; i++)
+        if (b[i])
+            c |= (1 << i);
+    return c;
+}
 #endif
