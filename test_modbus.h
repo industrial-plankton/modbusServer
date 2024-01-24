@@ -29,7 +29,10 @@ void testWriteMultipleHoldingRegisters()
                                .NumberOfRegisters = 2,
                                .RegisterValue = 0,
                                .DataByteCount = 4,
-                               .Values = reinterpret_cast<uint8_t *>(RequestValues)};
+                               .Values = {}};
+
+    reqPDU.Values.resize(reqPDU.DataByteCount);
+    memcpy(reqPDU.Values.data(), RequestValues, reqPDU.DataByteCount);
 
     uint8_t buffer[256] = {0};
     getRequestBytes(reqPDU, buffer);
@@ -57,13 +60,13 @@ void testReadMultipleHoldingRegisters()
                                .NumberOfRegisters = 2,
                                .RegisterValue = 0,
                                .DataByteCount = 0,
-                               .Values = nullptr};
+                               .Values = {}};
 
     uint8_t buffer[256] = {0};
     getRequestBytes(reqPDU, buffer);
     const ModbusRequestPDU processedRequestPDU = ParseRequestPDU(buffer);
     const ModbusResponsePDU response = regs.ProcessRequest(processedRequestPDU);
-    uint16_t *valuesAsInt = reinterpret_cast<uint16_t *>(response.RegisterValue);
+    const uint16_t *valuesAsInt = reinterpret_cast<const uint16_t *>(response.RegisterValue.data());
     TEST_ASSERT_EQUAL(4, response.DataByteCount);
     TEST_ASSERT_EQUAL(2, valuesAsInt[0]);
     TEST_ASSERT_EQUAL(3, valuesAsInt[1]);
@@ -82,7 +85,9 @@ void testWriteFloats()
                                .NumberOfRegisters = 2,
                                .RegisterValue = 0,
                                .DataByteCount = 4,
-                               .Values = reinterpret_cast<uint8_t *>(RequestValues)};
+                               .Values = {}};
+    reqPDU.Values.resize(reqPDU.DataByteCount);
+    memcpy(reqPDU.Values.data(), RequestValues, reqPDU.DataByteCount);
 
     uint8_t buffer[256] = {0};
     getRequestBytes(reqPDU, buffer);
@@ -113,13 +118,13 @@ void testReadCoils()
                                .NumberOfRegisters = 88,
                                .RegisterValue = 0,
                                .DataByteCount = 0,
-                               .Values = nullptr};
+                               .Values = {}};
 
     uint8_t buffer[256] = {0};
     getRequestBytes(reqPDU, buffer);
     const ModbusRequestPDU processedRequestPDU = ParseRequestPDU(buffer);
     const ModbusResponsePDU response = regs.ProcessRequest(processedRequestPDU);
-    uint8_t *valuesAsInt = reinterpret_cast<uint8_t *>(response.RegisterValue);
+    // const uint8_t *valuesAsInt = reinterpret_cast<const uint8_t *>(response.RegisterValue);
     TEST_ASSERT_EQUAL(11, response.DataByteCount);
     // TEST_ASSERT_EQUAL(true, valuesAsInt[((178 + 0x4000 - 16562) / 8) + 1]); // TODO  Finish this test
 }
@@ -136,7 +141,7 @@ void testWriteCoils()
                                .RegisterValue = 65280,
                                //    .RegisterValue = 255,
                                .DataByteCount = 0,
-                               .Values = nullptr};
+                               .Values = {}};
 
     uint8_t buffer[256] = {0};
     getRequestBytes(reqPDU, buffer);
@@ -149,7 +154,7 @@ void testWriteCoils()
                                 .NumberOfRegisters = 1,
                                 .RegisterValue = 0,
                                 .DataByteCount = 0,
-                                .Values = nullptr};
+                                .Values = {}};
 
     getRequestBytes(reqPDU2, buffer);
 

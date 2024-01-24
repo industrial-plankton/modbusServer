@@ -233,7 +233,8 @@ public:
                 break;
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters); // first
-            response.RegisterValue = reg->getDataLocation(PDU.Address);
+            response.RegisterValue.resize(response.DataByteCount);
+            memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
             break;
         case ModbusFunction::ReadHoldingRegisters:
         case ModbusFunction::ReadInputRegisters:
@@ -242,8 +243,9 @@ public:
                 response.Error = ModbusError::IllegalDataAddress;
                 break;
             }
-            response.RegisterValue = reg->getDataLocation(PDU.Address);
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters);
+            response.RegisterValue.resize(response.DataByteCount);
+            memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
             break;
         case ModbusFunction::WriteSingleCoil:
         case ModbusFunction::WriteSingleHoldingRegister:
@@ -251,7 +253,7 @@ public:
             break;
         case ModbusFunction::WriteMultipleCoils:
         case ModbusFunction::WriteMultipleHoldingRegisters:
-            reg->Write(PDU.Address, PDU.NumberOfRegisters, PDU.Values);
+            reg->Write(PDU.Address, PDU.NumberOfRegisters, PDU.Values.data());
             break;
         default:
             // printf("IllegalFunction address: %u, and func code: %u", PDU.Address, (uint8_t)PDU.FunctionCode);
