@@ -87,7 +87,7 @@ public:
         const auto PastLastAddress = AddressOffset + (8 * (ResponseByteCount - 1)) > Register::LastAddress;
         for (int i = 0; i < ResponseByteCount; i++)
         {
-            this->CompressedData[i] = CompressBooleans(&data[AddressOffset + (8 * i)],
+            this->CompressedData[i] = CompressBooleans(data + AddressOffset + (8 * i),
                                                        PastLastAddress && i == ResponseByteCount - 1 ? static_cast<int8_t>((Address + (8 * i)) - Register::LastAddress) : static_cast<int8_t>(8));
         }
         return this->CompressedData;

@@ -21,7 +21,7 @@ using std::array;
 using std::vector;
 #endif
 
-uint8_t CompressBooleans(uint8_t b[8], uint8_t limit = 8);
+uint8_t CompressBooleans(uint8_t *b, int8_t limit = 8);
 bool CRC16Check(const uint8_t *data, uint8_t byteCount);
 
 enum ModbusError : uint8_t
@@ -226,7 +226,7 @@ bool CRC16Check(const uint8_t *data, uint8_t byteCount)
 }
 // #endif
 
-uint8_t CompressBooleans(uint8_t b[8], int8_t limit = 8)
+uint8_t CompressBooleans(uint8_t *b, int8_t limit = 8)
 {
     uint8_t c = 0;
     for (int i = 0; i < limit && i < 8; i++)
