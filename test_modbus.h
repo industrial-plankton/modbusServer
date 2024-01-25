@@ -114,7 +114,7 @@ void testReadCoils()
     ResetAlarms = 255;
 
     ModbusRequestPDU reqPDU = {.FunctionCode = ModbusFunction::ReadCoils,
-                               .Address = 16562,
+                               .Address = 16500,
                                .NumberOfRegisters = 88,
                                .RegisterValue = 0,
                                .DataByteCount = 0,
@@ -124,9 +124,16 @@ void testReadCoils()
     getRequestBytes(reqPDU, buffer);
     const ModbusRequestPDU processedRequestPDU = ParseRequestPDU(buffer);
     const ModbusResponsePDU response = regs.ProcessRequest(processedRequestPDU);
-    // const uint8_t *valuesAsInt = reinterpret_cast<const uint8_t *>(response.RegisterValue);
+
+    array<bool, 90> Values = {};
+    for (size_t i = 0; i < response.DataByteCount && i * 8 < 90; i++)
+    {
+        auto asBooleans = DecompressBooleans(response.RegisterValue[i]);
+        memcpy(Values.data() + 8 * i, asBooleans.data(), 8);
+    }
+
     TEST_ASSERT_EQUAL(11, response.DataByteCount);
-    // TEST_ASSERT_EQUAL(true, valuesAsInt[((178 + 0x4000 - 16562) / 8) + 1]); // TODO  Finish this test
+    TEST_ASSERT_TRUE(Values[178 + 0x4000 - 16500]);
 }
 
 void testWriteCoils()
