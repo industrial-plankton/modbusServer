@@ -122,13 +122,9 @@ ModbusResponsePDU CreateErroredResponse(ModbusError Error)
                              .Error = Error};
 }
 
-ModbusResponsePDU ParseResponsePDU(const uint8_t *data, uint8_t byteCount)
+ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
 {
-    if (!CRC16Check(data, byteCount))
-    {
-        return CreateErroredResponse(ModbusError::CRCError);
-    }
-    else if (data[0] & 0b10000000)
+    if (data[0] & 0b10000000)
     {
         return CreateErroredResponse(static_cast<ModbusError>(data[1]));
     };
