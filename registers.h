@@ -286,7 +286,7 @@ size_t ReceiveTCPStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
     return 7 + size;
 }
 
-#ifdef ModbusRTU
+// #ifdef ModbusRTU
 template <size_t BufferSize>
 size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &ModbusFrame, const uint8_t byteCount)
 {
@@ -294,12 +294,12 @@ size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
     {
         return 0;
     }
-
+    FastCRC16 CRC16;
     const auto size = registers.ProcessStream(ModbusFrame.data() + 1) + 1;
     ((uint16_t *)(ModbusFrame.data() + size))[0] = CRC16.modbus(ModbusFrame.data(), size);
 
     return size + 2;
 }
-#endif
+// #endif
 
 #endif

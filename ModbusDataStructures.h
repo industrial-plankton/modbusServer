@@ -5,9 +5,9 @@
 #include <stdint.h> // uintX_t
 #include <string.h> // memcpy()
 
-#ifdef ModbusRTU
+// #ifdef ModbusRTU
 #include <FastCRC.h> // For RTU capability https://github.com/FrankBoesing/FastCRC, PlatformIO: frankboesing/FastCRC @ ^1.41
-#endif
+// #endif
 
 #ifdef __AVR__
 #include <Array.h>    //https://github.com/janelia-arduino/Array
@@ -222,13 +222,13 @@ void getMBAPBytes(const MBAPHead MBAPHeader, uint8_t *bytes) // Primarily for te
     bytes[6] = MBAPHeader.UnitID;
 }
 
-#ifdef ModbusRTU
+// #ifdef ModbusRTU
 bool CRC16Check(const uint8_t *data, uint8_t byteCount)
 {
     FastCRC16 CRC16;
     return (CRC16.modbus(data, byteCount - 2) == CombineBytes(data[byteCount - 1], data[byteCount - 2]));
 }
-#endif
+// #endif
 
 uint8_t CompressBooleans(uint8_t b[8], int8_t limit = 8)
 {
@@ -239,9 +239,9 @@ uint8_t CompressBooleans(uint8_t b[8], int8_t limit = 8)
     return c;
 }
 
-array<uint8_t, 8> DecompressBooleans(uint8_t b)
+array<bool, 8> DecompressBooleans(uint8_t b)
 {
-    array<uint8_t, 8> c;
+    array<bool, 8> c;
     for (int i = 0; i < 8; i++)
         c[i] = b & (1 << i);
     return c;
