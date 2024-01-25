@@ -99,7 +99,7 @@ void getRequestBytes(ModbusRequestPDU PDU, uint8_t *bytesBuffer) // Primarily fo
 
 uint8_t getRequestByteLength(ModbusRequestPDU PDU)
 {
-    return 5 + PDU.DataByteCount;
+    return 5 + PDU.DataByteCount + (PDU.DataByteCount > 0 ? 1 : 0);
 }
 
 struct ModbusResponsePDU
@@ -243,7 +243,7 @@ array<bool, 8> DecompressBooleans(uint8_t b)
 {
     array<bool, 8> c;
     for (int i = 0; i < 8; i++)
-        c[i] = b & (1 << i);
+        c[i] = static_cast<bool>(b & (1 << i));
     return c;
 }
 
