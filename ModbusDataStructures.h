@@ -236,7 +236,7 @@ uint8_t CompressBooleans(uint8_t *boolArray, int8_t limit = 8)
     return c;
 }
 
-array<bool, 8> DecompressBooleans(uint8_t b)
+array<bool, 8> DecompressBooleans(const uint8_t b)
 {
     array<bool, 8> c;
     for (int i = 0; i < 8; i++)

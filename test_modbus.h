@@ -136,7 +136,7 @@ void testReadCoils()
     TEST_ASSERT_TRUE(Values[178 + 0x4000 - 16500]);
 }
 
-void testWriteCoils()
+void testWriteCoil()
 {
     bool LocalValues[3] = {false, true, false};
     CoilRegister LocalHoldingRegister(17000, 17003, std::vector<ModbusFunction>{ModbusFunction::WriteSingleCoil}, reinterpret_cast<uint8_t *>(LocalValues));
@@ -175,6 +175,34 @@ void testWriteCoils()
     TEST_ASSERT_EQUAL(5, responseByteCount);
 }
 
+void testWriteMultipleCoils()
+{
+
+    bool LocalValues[3] = {false, true, false};
+    CoilRegister LocalHoldingRegister(17000, 17003, std::vector<ModbusFunction>{ModbusFunction::WriteMultipleCoils}, reinterpret_cast<uint8_t *>(LocalValues));
+    Registers regs(std::vector<Register *>{&LocalHoldingRegister});
+
+    ModbusRequestPDU reqPDU = {.FunctionCode = ModbusFunction::WriteMultipleCoils,
+                               .Address = 17000,
+                               .NumberOfRegisters = 3,
+                               .RegisterValue = 0,
+                               .DataByteCount = 1,
+                               .Values = {}};
+
+    reqPDU.Values.resize(3);
+    array<uint8_t, 3> values = {true, false, true};
+    reqPDU.Values[0] = CompressBooleans(values.data(), 3);
+
+    uint8_t buffer[256] = {0};
+    getRequestBytes(reqPDU, buffer);
+
+    const ModbusRequestPDU processedRequestPDU = ParseRequestPDU(buffer);
+    const ModbusResponsePDU response = regs.ProcessRequest(processedRequestPDU);
+    TEST_ASSERT_EQUAL(true, LocalValues[0]);
+    TEST_ASSERT_EQUAL(false, LocalValues[1]);
+    TEST_ASSERT_EQUAL(true, LocalValues[2]);
+}
+
 void test_LittleEndian()
 {
     TEST_ASSERT_EQUAL(Little, EndiannessTest()); // This will fail if the System is Big Endian
@@ -187,5 +215,6 @@ void TestModbus(void)
     RUN_TEST(testWriteFloats);
     RUN_TEST(test_LittleEndian);
     RUN_TEST(testReadCoils);
-    RUN_TEST(testWriteCoils);
+    RUN_TEST(testWriteCoil);
+    RUN_TEST(testWriteMultipleCoils);
 }

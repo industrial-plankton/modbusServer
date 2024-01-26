@@ -98,9 +98,12 @@ public:
     }
     void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
     {
-        memcpy(data + (Address - FirstAddress),
-               dataBuffer,
-               getResponseByteCount(RegistersCount));
+        for (size_t i = 0; i * 8 < RegistersCount; i++)
+        {
+            size_t remaining = RegistersCount - i * 8;
+            array<bool, 8> asBooleans = DecompressBooleans(dataBuffer[i]);
+            memcpy(data + (Address - FirstAddress) + 8 * i, asBooleans.data(), remaining > 8 ? 8 : remaining);
+        }
     }
     void WriteSingle(const uint16_t Address, const uint16_t value) override
     {
@@ -253,6 +256,11 @@ public:
             break;
         case ModbusFunction::WriteMultipleCoils:
         case ModbusFunction::WriteMultipleHoldingRegisters:
+            if (PDU.NumberOfRegisters == 0)
+            {
+                response.Error = ModbusError::IllegalDataValue;
+                break;
+            }
             reg->Write(PDU.Address, PDU.NumberOfRegisters, PDU.Values.data());
             break;
         default:
