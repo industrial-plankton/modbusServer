@@ -47,6 +47,17 @@ extern "C" int main(void)
             const auto intput = X[20];
 
             DS.at(10)++;
+
+            // Alias modbus registers
+            auto &ThisCoilsName = C.at(9);
+            auto &ThisIntegersName = DS.at(5);
+            auto &ThisFloatsName = DF.at(5);
+
+            // Use the Alias'
+            ThisIntegersName = 10;
+            ThisFloatsName = 10;
+            ThisFloatsName++;
+            ThisCoilsName = static_cast<float>(ThisIntegersName) < ThisFloatsName;
         }
 
         yield();

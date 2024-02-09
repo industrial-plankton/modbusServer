@@ -20,11 +20,11 @@ CoilRegister SystemCoils(0xF000, 0xF000 + 10, vector<ModbusFunction>(SystemCoilF
 
 array<int16_t, 50> DS;
 ModbusFunction HoldingFunctions[3] = {ReadHoldingRegisters, WriteSingleHoldingRegister, WriteMultipleHoldingRegisters};
-HoldingRegister Integers(0, 50, vector<ModbusFunction>(ModbusFunctions, 3), (uint16_t *)DS.data());
+HoldingRegister Integers(0, 50, vector<ModbusFunction>(HoldingFunctions, 3), (uint16_t *)DS.data());
 array<int32_t, 20> DD;
-HoldingRegister Doubles(0x4000, 0x4000 + 40, vector<ModbusFunction>(ModbusFunctions, 3), (uint16_t *)DD.data());
+HoldingRegister Doubles(0x4000, 0x4000 + 40, vector<ModbusFunction>(HoldingFunctions, 3), (uint16_t *)DD.data());
 array<float, 20> DF;
-HoldingRegister Floats(0x7000, 0x7000 + 40, vector<ModbusFunction>(ModbusFunctions, 3), (uint16_t *)DF.data(), false);
+HoldingRegister Floats(0x7000, 0x7000 + 40, vector<ModbusFunction>(HoldingFunctions, 3), (uint16_t *)DF.data(), false);
 array<int16_t, 10> SD;
 ModbusFunction SystemIntsFunctions[4] = {ReadInputRegisters, ReadHoldingRegisters, WriteSingleHoldingRegister, WriteMultipleHoldingRegisters};
 HoldingRegister SystemInts(0xF000, 0xF004, vector<ModbusFunction>(SystemIntsFunctions, 4), (uint16_t *)SD.data());
@@ -53,4 +53,15 @@ void loop()
     const auto intput = X[5]; // read "input" coil
 
     DS.at(10)++; // increment holding register value
+
+    // Alias modbus registers
+    auto &ThisCoilsName = C.at(9);
+    auto &ThisIntegersName = DS.at(5);
+    auto &ThisFloatsName = DF.at(5);
+
+    // Use the Alias'
+    ThisIntegersName = 10;
+    ThisFloatsName = 10;
+    ThisFloatsName++;
+    ThisCoilsName = static_cast<float>(ThisIntegersName) < ThisFloatsName;
 }
