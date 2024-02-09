@@ -5,6 +5,11 @@
 // https://github.com/janelia-arduino/Vector
 // https://github.com/FrankBoesing/FastCRC
 
+// AVR requires 3rd party vector implementation as it doesn't have std::vector
+// Supported vector type is toggled with the __AVR__ define, other micro controllers
+// that also dont have std::vector could also use this if they can use https://github.com/janelia-arduino/Vector
+// just define __AVR__ as a build flags, if that causes problems fork and change the define check in Registers.h and ModbusDataStructures.h
+
 // Define Modbus registers and types
 array<bool, 10> X;
 ModbusFunction InputCoilsFunctions[1] = {ReadDiscreteInputs};
@@ -39,13 +44,14 @@ Registers registers(asVec);
 
 void setup()
 {
-    Serial.begin(38400, SERIAL_8E1);
+    // Beware baud rate mismatches / error rates due to clock differences
+    Serial1.begin(38400, SERIAL_8E1); // pass serial format (8 wide, Even parity, 1 Stop bit) if you can (SerialUSB doesn't support it as it auto negotiates)
 }
 
 void loop()
 {
     // Reimplement StdArdunioModbusRTU.h to modify Modbus address and/or add read/write side effects
-    Process(registers, Serial);
+    Process(registers, Serial1);
 
     // Use and set values
     Y[1] = true; // set "output" coil

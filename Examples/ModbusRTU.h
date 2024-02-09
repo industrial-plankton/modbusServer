@@ -32,14 +32,16 @@ extern "C" int main(void)
 {
     // Setup();
     {
-        Initialize(9600);
+        // Beware baud rate mismatches / error rates due to clock differences
+        Serial1.begin(38400, SERIAL_8E1); // pass serial format (8 wide, Even parity, 1 Stop bit) if you can (SerialUSB doesn't support it as it auto negotiates)
+        // Serial1.transmitterEnable(pinNumber); on teensy's this can be used to easily control RS485/422 transmission enable
     }
 
     for (;;)
     {
         // Loop();
         {
-            Process(registers, Serial);
+            Process(registers, Serial1);
 
             // Use and set values
             Y[1] = true;
