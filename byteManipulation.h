@@ -18,8 +18,12 @@ enum Endianness
 
 constexpr Endianness EndiannessTest()
 {
+#ifdef __AVR__
+    return Little;
+#else
     uint16_t TestValue = 1;
     return static_cast<Endianness>(reinterpret_cast<uint8_t *>(&TestValue)[0] == TestValue);
+#endif
 }
 
 uint16_t byteSwap(uint16_t wrongEndianessInteger)

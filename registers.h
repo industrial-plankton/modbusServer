@@ -18,19 +18,21 @@ using std::vector;
 // Convert Modbus 984 address to array index, assumes you are using the correct array
 constexpr uint16_t M984(const long Address)
 {
-    if (Address >= 400001 && Address < 428673) // int
-    {
-        return Address - 400001;
-    }
-    else if (Address >= 428673) // Float
-    {
-        return (Address - 428673) / 2;
-    }
-    else if (Address >= 16385 && Address < 18345) // Bool
-    {
-        return Address - 16385;
-    }
-    return -1;
+    return (Address - 400001) * (Address >= 400001 && Address < 428673) + ((Address - 428673) / 2) * (Address >= 428673) + (Address - 16385) * (Address >= 16385 && Address < 18345);
+
+    // if (Address >= 400001 && Address < 428673) // int
+    // {
+    //     return Address - 400001;
+    // }
+    // else if (Address >= 428673) // Float
+    // {
+    //     return (Address - 428673) / 2;
+    // }
+    // else if (Address >= 16385 && Address < 18345) // Bool
+    // {
+    //     return Address - 16385;
+    // }
+    // return -1;
 }
 
 class Register
@@ -155,7 +157,11 @@ public:
 class Registers
 {
 private:
+#ifdef __AVR__
+    uint8_t responseBuffer[64] = {0};
+#endif
     const vector<Register *> RegisterList;
+
     Register *getRegister(const ModbusRequestPDU PDU) const
     {
         for (Register *reg : RegisterList)
@@ -194,7 +200,9 @@ private:
 
     ModbusResponsePDU getErrorCode(const ModbusRequestPDU PDU) const
     {
-        ModbusResponsePDU response = {.FunctionCode = PDU.FunctionCode};
+        ModbusResponsePDU response;
+        response.FunctionCode = PDU.FunctionCode;
+
         if (!ValidFunctionCode(PDU.FunctionCode))
         {
             // printf("IllegalFunction error on address: %u, and func code: %u\n", PDU.Address, (uint8_t)PDU.FunctionCode);
@@ -225,7 +233,8 @@ public:
             return getErrorCode(PDU);
         }
 
-        ModbusResponsePDU response = {.FunctionCode = PDU.FunctionCode};
+        ModbusResponsePDU response;
+        response.FunctionCode = PDU.FunctionCode;
         switch (PDU.FunctionCode)
         {
         case ModbusFunction::ReadCoils:
@@ -236,7 +245,12 @@ public:
                 break;
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters); // first
+
+#ifdef __AVR__
+            response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
+#else
             response.RegisterValue.resize(response.DataByteCount);
+#endif
             memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
             break;
         case ModbusFunction::ReadHoldingRegisters:
@@ -247,7 +261,11 @@ public:
                 break;
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters);
+#ifdef __AVR__
+            response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
+#else
             response.RegisterValue.resize(response.DataByteCount);
+#endif
             memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
             break;
         case ModbusFunction::WriteSingleCoil:

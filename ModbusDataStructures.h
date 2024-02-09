@@ -14,6 +14,8 @@
 #include <Vector.h>   //https://github.com/janelia-arduino/Vector
 #define array Array   // Make code invariant
 #define vector Vector // Make code invariant
+uint8_t requestBuffer[64] = {0};
+uint8_t responseBuffer[64] = {0};
 #else
 #include <vector>
 #include <array>
@@ -64,9 +66,13 @@ ModbusRequestPDU ParseRequestPDU(uint8_t *data)
         .Address = CombineBytes(data[1], data[2]),
         .NumberOfRegisters = CombineBytes(data[3], data[4]),
         .RegisterValue = CombineBytes(data[3], data[4]),
-        .DataByteCount = data[5],
-        .Values = {}};
+        .DataByteCount = data[5]};
+
+#ifdef __AVR__
+    req.Values.setStorage(requestBuffer, req.DataByteCount);
+#else
     req.Values.resize(req.DataByteCount);
+#endif
     memcpy(req.Values.data(), data + 6, req.DataByteCount);
     return req;
 }
@@ -108,18 +114,19 @@ struct ModbusResponsePDU
     uint16_t Address = 0; // Unchanged from request PDU
     uint8_t DataByteCount = 0;
     uint16_t NumberOfRegistersChanged = 0; // Unchanged from request PDU
-    vector<uint8_t> RegisterValue = {};
+    vector<uint8_t> RegisterValue;
     ModbusError Error = NoError;
 };
 
 ModbusResponsePDU CreateErroredResponse(ModbusError Error)
 {
-    return ModbusResponsePDU{.FunctionCode = ModbusFunction::ReadCoils,
-                             .Address = 0,
-                             .DataByteCount = 0,
-                             .NumberOfRegistersChanged = 0,
-                             .RegisterValue = {},
-                             .Error = Error};
+    ModbusResponsePDU resp;
+    resp.FunctionCode = ModbusFunction::ReadCoils;
+    resp.Address = 0;
+    resp.DataByteCount = 0;
+    resp.NumberOfRegistersChanged = 0;
+    resp.Error = Error;
+    return resp;
 }
 
 ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
@@ -130,13 +137,12 @@ ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
     };
 
     ModbusFunction code = static_cast<ModbusFunction>(data[0]);
-    ModbusResponsePDU resp = {
-        .FunctionCode = code,
-        .Address = 0,
-        .DataByteCount = 0,
-        .NumberOfRegistersChanged = 0,
-        .RegisterValue = {},
-        .Error = NoError};
+    ModbusResponsePDU resp;
+    resp.FunctionCode = code;
+    resp.Address = 0;
+    resp.DataByteCount = 0;
+    resp.NumberOfRegistersChanged = 0;
+    resp.Error = NoError;
 
     switch (code)
     {
@@ -146,7 +152,11 @@ ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
     case ModbusFunction::ReadInputRegisters:
     {
         resp.DataByteCount = data[1];
+#ifdef __AVR__
+        resp.RegisterValue.setStorage(responseBuffer, resp.DataByteCount);
+#else
         resp.RegisterValue.resize(resp.DataByteCount);
+#endif
         memcpy(resp.RegisterValue.data(), data + 2, resp.DataByteCount);
     }
     break;
@@ -155,7 +165,11 @@ ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
     case ModbusFunction::WriteSingleHoldingRegister:
         resp.Address = CombineBytes(data[1], data[2]);
         resp.NumberOfRegistersChanged = 1;
-        resp.RegisterValue.resize(2);
+#ifdef __AVR__
+        resp.RegisterValue.setStorage(responseBuffer, resp.DataByteCount);
+#else
+        resp.RegisterValue.resize(resp.DataByteCount);
+#endif
         memcpy(resp.RegisterValue.data(), data + 3, 2);
         break;
 

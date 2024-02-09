@@ -4,7 +4,7 @@
 #define ModbusRTU
 #include <registers.h>
 
-#define ModbusSerialPort SerialUSB // Map the serial port used for modbus
+#define ModbusSerialPort Serial // Map the serial port used for modbus
 const uint8_t ModbusAddress = 1;
 
 void Initialize(long baud)
