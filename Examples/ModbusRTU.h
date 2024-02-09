@@ -1,6 +1,8 @@
 #include <vector>
 
 #include <StdArdunioModbusRTU.h>
+// Dependencies
+// https://github.com/FrankBoesing/FastCRC
 
 // Define Modbus registers and types
 std::array<bool, 272> X;
@@ -37,7 +39,7 @@ extern "C" int main(void)
     {
         // Loop();
         {
-            Process(registers);
+            Process(registers, Serial);
 
             // Use and set values
             Y[1] = true;

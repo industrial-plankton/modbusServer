@@ -4,15 +4,15 @@
 #define ModbusRTU
 #include <registers.h>
 
-#define ModbusSerialPort Serial // Map the serial port used for modbus
+// #define ModbusSerialPort Serial // Map the serial port used for modbus
 const uint8_t ModbusAddress = 1;
 
-void Initialize(long baud)
-{
-    // Beware baud rate mismatches / error rates due to clock differences
-    ModbusSerialPort.begin(baud); //, SERIAL_8E1); pass serial format (8 wide, Even parity, 1 Stop bit) if you can (SerialUSB doesn't support it)
-    // ModbusSerial.transmitterEnable(pinNumber); on teensy's this can be used to easily control RS485/422 transmission enable
-}
+// void Initialize(long baud)
+// {
+// Beware baud rate mismatches / error rates due to clock differences
+// ModbusSerialPort.begin(baud); //, SERIAL_8E1); pass serial format (8 wide, Even parity, 1 Stop bit) if you can (SerialUSB doesn't support it)
+// ModbusSerial.transmitterEnable(pinNumber); on teensy's this can be used to easily control RS485/422 transmission enable
+// }
 
 void Process(Registers &registers, Stream &ModbusSerial)
 {

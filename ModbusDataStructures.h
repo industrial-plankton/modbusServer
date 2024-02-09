@@ -121,10 +121,6 @@ struct ModbusResponsePDU
 ModbusResponsePDU CreateErroredResponse(ModbusError Error)
 {
     ModbusResponsePDU resp;
-    resp.FunctionCode = ModbusFunction::ReadCoils;
-    resp.Address = 0;
-    resp.DataByteCount = 0;
-    resp.NumberOfRegistersChanged = 0;
     resp.Error = Error;
     return resp;
 }
@@ -139,9 +135,6 @@ ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
     ModbusFunction code = static_cast<ModbusFunction>(data[0]);
     ModbusResponsePDU resp;
     resp.FunctionCode = code;
-    resp.Address = 0;
-    resp.DataByteCount = 0;
-    resp.NumberOfRegistersChanged = 0;
     resp.Error = NoError;
 
     switch (code)

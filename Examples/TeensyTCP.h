@@ -1,6 +1,9 @@
 #include <vector>
 
 #include <StdTeensyModbusTCP.h>
+// Dependencies
+// https://github.com/FrankBoesing/FastCRC // only used for RTU
+// https://github.com/ssilverman/QNEthernet
 
 using namespace qindesign::network;
 
