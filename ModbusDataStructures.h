@@ -166,9 +166,9 @@ ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
         resp.Address = CombineBytes(data[1], data[2]);
         resp.NumberOfRegistersChanged = 1;
 #ifdef __AVR__
-        resp.RegisterValue.setStorage(responseBuffer, resp.DataByteCount);
+        resp.RegisterValue.setStorage(responseBuffer, 2);
 #else
-        resp.RegisterValue.resize(resp.DataByteCount);
+        resp.RegisterValue.resize(2);
 #endif
         memcpy(resp.RegisterValue.data(), data + 3, 2);
         break;
