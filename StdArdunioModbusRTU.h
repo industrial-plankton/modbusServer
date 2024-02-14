@@ -16,7 +16,7 @@ const uint8_t ModbusAddress = 1;
 
 void Process(Registers &registers, Stream &ModbusSerial)
 {
-    array<uint8_t, 128> ModbusFrame; // Should limit size to the same as the serial ring buffer
+    array<uint8_t, 128> ModbusFrame = {0}; // Should limit size to the same as the serial ring buffer
     uint16_t bufferIndex = 0;
 
     while (ModbusSerial.available() > 0)
