@@ -10,6 +10,12 @@ union converter
     uint8_t asByte[2];
 };
 
+union wordConverter
+{
+    uint16_t as32;
+    uint8_t as16[2];
+};
+
 enum Endianness
 {
     Big,
@@ -44,6 +50,20 @@ uint16_t CombineBytes(uint8_t HighBits, uint8_t LowBits)
     {
         converter In = {.asByte = {HighBits, LowBits}};
         return In.asInt;
+    }
+}
+
+uint32_t CombineWord(uint16_t HighBits, uint16_t LowBits)
+{
+    if (EndiannessTest() == Endianness::Little)
+    {
+        wordConverter In = {.as16 = {LowBits, HighBits}};
+        return In.as32;
+    }
+    else
+    {
+        wordConverter In = {.as16 = {HighBits, LowBits}};
+        return In.as32;
     }
 }
 
