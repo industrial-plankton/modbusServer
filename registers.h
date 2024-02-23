@@ -51,7 +51,7 @@ public:
 
     virtual uint8_t *getDataLocation(const uint16_t Address) = 0;
     virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) = 0;
-    virtual void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) = 0;
+    virtual void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) = 0;
     virtual void WriteSingle(const uint16_t Address, const uint16_t value) = 0;
 
     bool AddressInRange(const uint16_t address) const
@@ -98,7 +98,7 @@ public:
     {
         return ResponseByteCount = RegistersCount / 8 + ((RegistersCount % 8) ? 1 : 0);
     }
-    void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
+    void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) override
     {
         for (size_t i = 0; i * 8 < RegistersCount; i++)
         {
@@ -134,11 +134,11 @@ public:
     {
         return RegistersCount * sizeof(data[0]);
     }
-    void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
+    void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) override
     {
         if (ReceiveBigEndian)
         {
-            uint16_t *dataBuffer16 = (uint16_t *)dataBuffer;
+            uint16_t *dataBuffer16 = reinterpret_cast<uint16_t *>(dataBuffer);
             for (size_t i = 0; i < getResponseByteCount(RegistersCount) / 2; i++)
             {
                 dataBuffer16[i] = byteSwap(dataBuffer16[i]);
@@ -176,7 +176,7 @@ private:
     }
     bool ValidFunctionCode(const ModbusFunction FunctionCode) const
     {
-        for (Register *reg : RegisterList)
+        for (const Register *reg : RegisterList)
         {
             if (reg->ValidFunctionCode(FunctionCode))
             {
@@ -188,7 +188,7 @@ private:
 
     bool ValidAddress(const ModbusFunction FunctionCode, const uint16_t address) const
     {
-        for (Register *reg : RegisterList)
+        for (const Register *reg : RegisterList)
         {
             if (reg->ValidFunctionCode(FunctionCode) && reg->AddressInRange(address))
             {
@@ -322,7 +322,7 @@ size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
     }
     FastCRC16 CRC16;
     const auto size = registers.ProcessStream(ModbusFrame.data() + 1) + 1;
-    ((uint16_t *)(ModbusFrame.data() + size))[0] = CRC16.modbus(ModbusFrame.data(), size);
+    reinterpret_cast<uint16_t *>(ModbusFrame.data() + size)[0] = CRC16.modbus(ModbusFrame.data(), size);
 
     return size + 2;
 }
