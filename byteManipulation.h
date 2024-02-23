@@ -12,8 +12,8 @@ union converter
 
 union wordConverter
 {
-    uint16_t as32;
-    uint8_t as16[2];
+    uint32_t as32;
+    uint16_t as16[2];
 };
 
 enum Endianness
@@ -24,11 +24,19 @@ enum Endianness
 
 constexpr Endianness EndiannessTest()
 {
+#ifdef __BYTE_ORDER__
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return Little;
+#else
+    return Big;
+#endif
+#else
 #ifdef __AVR__
     return Little;
 #else
     uint16_t TestValue = 1;
     return static_cast<Endianness>(reinterpret_cast<uint8_t *>(&TestValue)[0] == TestValue);
+#endif
 #endif
 }
 
