@@ -9,7 +9,7 @@
 #include <FastCRC.h> // For RTU capability https://github.com/FrankBoesing/FastCRC, PlatformIO: frankboesing/FastCRC @ ^1.41
 // #endif
 
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
 #include <Array.h>    //https://github.com/janelia-arduino/Array
 #include <Vector.h>   //https://github.com/janelia-arduino/Vector
 #define array Array   // Make code invariant
@@ -23,7 +23,7 @@ using std::array;
 using std::vector;
 #endif
 
-uint8_t CompressBooleans(uint8_t *b, int8_t limit = 8);
+uint8_t CompressBooleans(uint8_t *b, int8_t limit);
 bool CRC16Check(const uint8_t *data, uint8_t byteCount);
 
 enum ModbusError : uint8_t
@@ -67,13 +67,16 @@ ModbusRequestPDU ParseRequestPDU(uint8_t *data)
         .NumberOfRegisters = CombineBytes(data[3], data[4]),
         .RegisterValue = CombineBytes(data[3], data[4]),
         .DataByteCount = data[5]};
-
-#ifdef __AVR__
-    req.Values.setStorage(requestBuffer, req.DataByteCount);
+    if (req.FunctionCode == ModbusFunction::WriteMultipleCoils || req.FunctionCode == ModbusFunction::WriteMultipleHoldingRegisters)
+    {
+#if defined(__AVR__) || defined(noStdArray)
+        req.Values.setStorage(requestBuffer, req.DataByteCount);
 #else
-    req.Values.resize(req.DataByteCount);
+        req.Values.resize(req.DataByteCount);
 #endif
-    memcpy(req.Values.data(), data + 6, req.DataByteCount);
+        memcpy(req.Values.data(), data + 6, req.DataByteCount);
+    }
+
     return req;
 }
 
@@ -145,7 +148,7 @@ ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
     case ModbusFunction::ReadInputRegisters:
     {
         resp.DataByteCount = data[1];
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
         resp.RegisterValue.setStorage(responseBuffer, resp.DataByteCount);
 #else
         resp.RegisterValue.resize(resp.DataByteCount);
@@ -158,7 +161,7 @@ ModbusResponsePDU ParseResponsePDU(const uint8_t *data)
     case ModbusFunction::WriteSingleHoldingRegister:
         resp.Address = CombineBytes(data[1], data[2]);
         resp.NumberOfRegistersChanged = 1;
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
         resp.RegisterValue.setStorage(responseBuffer, 2);
 #else
         resp.RegisterValue.resize(2);
@@ -233,7 +236,7 @@ bool CRC16Check(const uint8_t *data, uint8_t byteCount)
 }
 // #endif
 
-uint8_t CompressBooleans(uint8_t *boolArray, int8_t limit = 8)
+uint8_t CompressBooleans(uint8_t *boolArray, int8_t limit)
 {
     uint8_t c = 0;
     for (int i = 0; i < limit && i < 8; i++)

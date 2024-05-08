@@ -1,7 +1,7 @@
 #ifndef H_ModBusRegisters_IP
 #define H_ModBusRegisters_IP
 
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
 #include <Array.h>    //https://github.com/janelia-arduino/Array
 #include <Vector.h>   //https://github.com/janelia-arduino/Vector
 #define array Array   // Make code invariant
@@ -118,12 +118,13 @@ class HoldingRegister : public Register
 private:
     uint16_t *data;
     const bool ReceiveBigEndian;
+    const bool SendBigEndian;
 
 public:
-    HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data, bool ReceiveBigEndian)
-        : Register(FirstAddress, LastAddress, FunctionList), data{data}, ReceiveBigEndian{ReceiveBigEndian} {};
+    HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data, bool ReceiveBigEndian, bool SendBigEndian)
+        : Register(FirstAddress, LastAddress, FunctionList), data{data}, ReceiveBigEndian{ReceiveBigEndian}, SendBigEndian{SendBigEndian} {};
     HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data)
-        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true){};
+        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true, true){};
     ~HoldingRegister(){};
 
     uint8_t *getDataLocation(const uint16_t Address) override
@@ -136,7 +137,7 @@ public:
     }
     void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
     {
-        if (ReceiveBigEndian)
+        if ((ReceiveBigEndian && EndiannessTest() == Little) || (!ReceiveBigEndian && EndiannessTest() == Big))
         {
             uint16_t *dataBuffer16 = (uint16_t *)dataBuffer;
             for (size_t i = 0; i < getResponseByteCount(RegistersCount) / 2; i++)
@@ -150,14 +151,16 @@ public:
     }
     void WriteSingle(const uint16_t Address, const uint16_t value) override
     {
-        data[Address - FirstAddress] = ReceiveBigEndian ? byteSwap(value) : value;
+        data[Address - FirstAddress] = (ReceiveBigEndian && EndiannessTest() == Little) || (!ReceiveBigEndian && EndiannessTest() == Big)
+                                           ? byteSwap(value)
+                                           : value;
     }
 };
 
 class Registers
 {
 private:
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
     uint8_t responseBuffer[64] = {0};
 #endif
     const vector<Register *> RegisterList;
@@ -246,7 +249,7 @@ public:
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters); // first
 
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
             response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
 #else
             response.RegisterValue.resize(response.DataByteCount);
@@ -261,7 +264,7 @@ public:
                 break;
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters);
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
             response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
 #else
             response.RegisterValue.resize(response.DataByteCount);
@@ -289,7 +292,9 @@ public:
     }
     uint8_t ProcessStream(uint8_t *ModbusFrame)
     {
-        return ModbusResponsePDUtoStream(this->ProcessRequest(ParseRequestPDU(ModbusFrame)), ModbusFrame);
+        auto PDU = ParseRequestPDU(ModbusFrame);
+        auto response = this->ProcessRequest(PDU);
+        return ModbusResponsePDUtoStream(response, ModbusFrame);
     }
 };
 
@@ -322,7 +327,9 @@ size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
     }
     FastCRC16 CRC16;
     const auto size = registers.ProcessStream(ModbusFrame.data() + 1) + 1;
-    ((uint16_t *)(ModbusFrame.data() + size))[0] = CRC16.modbus(ModbusFrame.data(), size);
+    // ((uint16_t *)(ModbusFrame.data() + size))[0] = CRC16.modbus(ModbusFrame.data(), size);
+    const auto CRC = CRC16.modbus(ModbusFrame.data(), size);
+    memcpy(ModbusFrame.data() + size, &CRC, 2);
 
     return size + 2;
 }
