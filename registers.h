@@ -1,7 +1,7 @@
 #ifndef H_ModBusRegisters_IP
 #define H_ModBusRegisters_IP
 
-#if defined(__AVR__) || defined(noStdArray)
+#ifdef __AVR__
 #include <Array.h>    //https://github.com/janelia-arduino/Array
 #include <Vector.h>   //https://github.com/janelia-arduino/Vector
 #define array Array   // Make code invariant
@@ -51,7 +51,7 @@ public:
 
     virtual uint8_t *getDataLocation(const uint16_t Address) = 0;
     virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) = 0;
-    virtual void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) = 0;
+    virtual void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) = 0;
     virtual void WriteSingle(const uint16_t Address, const uint16_t value) = 0;
 
     bool AddressInRange(const uint16_t address) const
@@ -98,7 +98,7 @@ public:
     {
         return ResponseByteCount = RegistersCount / 8 + ((RegistersCount % 8) ? 1 : 0);
     }
-    void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
+    void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) override
     {
         for (size_t i = 0; i * 8 < RegistersCount; i++)
         {
@@ -118,13 +118,12 @@ class HoldingRegister : public Register
 private:
     uint16_t *data;
     const bool ReceiveBigEndian;
-    const bool SendBigEndian;
 
 public:
-    HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data, bool ReceiveBigEndian, bool SendBigEndian)
-        : Register(FirstAddress, LastAddress, FunctionList), data{data}, ReceiveBigEndian{ReceiveBigEndian}, SendBigEndian{SendBigEndian} {};
+    HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data, bool ReceiveBigEndian)
+        : Register(FirstAddress, LastAddress, FunctionList), data{data}, ReceiveBigEndian{ReceiveBigEndian} {};
     HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data)
-        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true, true){};
+        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true){};
     ~HoldingRegister(){};
 
     uint8_t *getDataLocation(const uint16_t Address) override
@@ -135,11 +134,11 @@ public:
     {
         return RegistersCount * sizeof(data[0]);
     }
-    void Write(const uint16_t Address, const uint8_t RegistersCount, const uint8_t *dataBuffer) override
+    void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) override
     {
-        if ((ReceiveBigEndian && EndiannessTest() == Little) || (!ReceiveBigEndian && EndiannessTest() == Big))
+        if (ReceiveBigEndian)
         {
-            uint16_t *dataBuffer16 = (uint16_t *)dataBuffer;
+            uint16_t *dataBuffer16 = reinterpret_cast<uint16_t *>(dataBuffer);
             for (size_t i = 0; i < getResponseByteCount(RegistersCount) / 2; i++)
             {
                 dataBuffer16[i] = byteSwap(dataBuffer16[i]);
@@ -151,16 +150,14 @@ public:
     }
     void WriteSingle(const uint16_t Address, const uint16_t value) override
     {
-        data[Address - FirstAddress] = (ReceiveBigEndian && EndiannessTest() == Little) || (!ReceiveBigEndian && EndiannessTest() == Big)
-                                           ? byteSwap(value)
-                                           : value;
+        data[Address - FirstAddress] = ReceiveBigEndian ? byteSwap(value) : value;
     }
 };
 
 class Registers
 {
 private:
-#if defined(__AVR__) || defined(noStdArray)
+#ifdef __AVR__
     uint8_t responseBuffer[64] = {0};
 #endif
     const vector<Register *> RegisterList;
@@ -179,7 +176,7 @@ private:
     }
     bool ValidFunctionCode(const ModbusFunction FunctionCode) const
     {
-        for (Register *reg : RegisterList)
+        for (const Register *reg : RegisterList)
         {
             if (reg->ValidFunctionCode(FunctionCode))
             {
@@ -191,7 +188,7 @@ private:
 
     bool ValidAddress(const ModbusFunction FunctionCode, const uint16_t address) const
     {
-        for (Register *reg : RegisterList)
+        for (const Register *reg : RegisterList)
         {
             if (reg->ValidFunctionCode(FunctionCode) && reg->AddressInRange(address))
             {
@@ -249,7 +246,7 @@ public:
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters); // first
 
-#if defined(__AVR__) || defined(noStdArray)
+#ifdef __AVR__
             response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
 #else
             response.RegisterValue.resize(response.DataByteCount);
@@ -264,7 +261,7 @@ public:
                 break;
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters);
-#if defined(__AVR__) || defined(noStdArray)
+#ifdef __AVR__
             response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
 #else
             response.RegisterValue.resize(response.DataByteCount);
@@ -292,9 +289,7 @@ public:
     }
     uint8_t ProcessStream(uint8_t *ModbusFrame)
     {
-        auto PDU = ParseRequestPDU(ModbusFrame);
-        auto response = this->ProcessRequest(PDU);
-        return ModbusResponsePDUtoStream(response, ModbusFrame);
+        return ModbusResponsePDUtoStream(this->ProcessRequest(ParseRequestPDU(ModbusFrame)), ModbusFrame);
     }
 };
 
@@ -327,9 +322,7 @@ size_t ReceiveRTUStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
     }
     FastCRC16 CRC16;
     const auto size = registers.ProcessStream(ModbusFrame.data() + 1) + 1;
-    // ((uint16_t *)(ModbusFrame.data() + size))[0] = CRC16.modbus(ModbusFrame.data(), size);
-    const auto CRC = CRC16.modbus(ModbusFrame.data(), size);
-    memcpy(ModbusFrame.data() + size, &CRC, 2);
+    reinterpret_cast<uint16_t *>(ModbusFrame.data() + size)[0] = CRC16.modbus(ModbusFrame.data(), size);
 
     return size + 2;
 }

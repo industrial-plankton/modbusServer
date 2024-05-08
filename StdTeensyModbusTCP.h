@@ -25,10 +25,10 @@ public:
     explicit EthernetClientStream(EthernetClient &client) : Client(client){};
     ~EthernetClientStream(){};
 
-    int available() { return Client.available(); };
-    int read() { return Client.read(); };
-    int peek() { return Client.peek(); };
-    size_t write(uint8_t b) { return Client.write(b); };
+    int available() override { return Client.available(); };
+    int read()override { return Client.read(); };
+    int peek() override{ return Client.peek(); };
+    size_t write(uint8_t b) override{ return Client.write(b); };
 };
 
 struct TCPServerInit

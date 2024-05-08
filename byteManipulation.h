@@ -10,6 +10,12 @@ union converter
     uint8_t asByte[2];
 };
 
+union wordConverter
+{
+    uint32_t as32;
+    uint16_t as16[2];
+};
+
 enum Endianness
 {
     Big,
@@ -18,11 +24,19 @@ enum Endianness
 
 constexpr Endianness EndiannessTest()
 {
+#ifdef __BYTE_ORDER__
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return Little;
+#else
+    return Big;
+#endif
+#else
 #ifdef __AVR__
     return Little;
 #else
     uint16_t TestValue = 1;
     return static_cast<Endianness>(reinterpret_cast<uint8_t *>(&TestValue)[0] == TestValue);
+#endif
 #endif
 }
 
@@ -44,6 +58,20 @@ uint16_t CombineBytes(uint8_t HighBits, uint8_t LowBits)
     {
         converter In = {.asByte = {HighBits, LowBits}};
         return In.asInt;
+    }
+}
+
+uint32_t CombineWord(uint16_t HighBits, uint16_t LowBits)
+{
+    if (EndiannessTest() == Endianness::Little)
+    {
+        wordConverter In = {.as16 = {LowBits, HighBits}};
+        return In.as32;
+    }
+    else
+    {
+        wordConverter In = {.as16 = {HighBits, LowBits}};
+        return In.as32;
     }
 }
 
