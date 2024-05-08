@@ -1,7 +1,7 @@
 #ifndef H_ModBusRegisters_IP
 #define H_ModBusRegisters_IP
 
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
 #include <Array.h>    //https://github.com/janelia-arduino/Array
 #include <Vector.h>   //https://github.com/janelia-arduino/Vector
 #define array Array   // Make code invariant
@@ -53,6 +53,7 @@ public:
     virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) = 0;
     virtual void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) = 0;
     virtual void WriteSingle(const uint16_t Address, const uint16_t value) = 0;
+    virtual const void Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) = 0;
 
     bool AddressInRange(const uint16_t address) const
     {
@@ -75,8 +76,6 @@ class CoilRegister : public Register
 {
 private:
     uint8_t *data;
-    uint8_t CompressedData[13] = {0};
-    uint8_t ResponseByteCount = 0;
 
 public:
     CoilRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint8_t *data)
@@ -85,18 +84,11 @@ public:
 
     uint8_t *getDataLocation(const uint16_t Address) override
     {
-        const auto AddressOffset = (Address - FirstAddress);
-        const auto PastLastAddress = AddressOffset + (8 * (ResponseByteCount - 1)) > Register::LastAddress;
-        for (int i = 0; i < ResponseByteCount; i++)
-        {
-            this->CompressedData[i] = CompressBooleans(data + AddressOffset + (8 * i),
-                                                       PastLastAddress && i == ResponseByteCount - 1 ? static_cast<int8_t>((Address + (8 * i)) - Register::LastAddress) : static_cast<int8_t>(8));
-        }
-        return this->CompressedData;
+        return reinterpret_cast<uint8_t *>(data + (Address - FirstAddress));
     }
     uint8_t getResponseByteCount(const uint8_t RegistersCount) override
     {
-        return ResponseByteCount = RegistersCount / 8 + ((RegistersCount % 8) ? 1 : 0);
+        return RegistersCount / 8 + ((RegistersCount % 8) ? 1 : 0);
     }
     void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) override
     {
@@ -111,6 +103,18 @@ public:
     {
         data[Address - FirstAddress] = value > 0;
     }
+
+    void const Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) override
+    {
+        const auto AddressOffset = (Address - FirstAddress);
+        const auto ResponseByteCount = getResponseByteCount(RegistersCount);
+        const auto PastLastAddress = AddressOffset + (8 * (ResponseByteCount - 1)) > Register::LastAddress;
+        for (int i = 0; i < ResponseByteCount; i++)
+        {
+            ResponseBuffer[i] = CompressBooleans(data + AddressOffset + (8 * i),
+                                                 PastLastAddress && i == ResponseByteCount - 1 ? static_cast<int8_t>((Address + (8 * i)) - Register::LastAddress) : static_cast<int8_t>(8));
+        }
+    }
 };
 
 class HoldingRegister : public Register
@@ -118,12 +122,13 @@ class HoldingRegister : public Register
 private:
     uint16_t *data;
     const bool ReceiveBigEndian;
+    const bool SendBigEndian;
 
 public:
-    HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data, bool ReceiveBigEndian)
-        : Register(FirstAddress, LastAddress, FunctionList), data{data}, ReceiveBigEndian{ReceiveBigEndian} {};
+    HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data, bool ReceiveBigEndian, bool SendBigEndian)
+        : Register(FirstAddress, LastAddress, FunctionList), data{data}, ReceiveBigEndian{ReceiveBigEndian}, SendBigEndian{SendBigEndian} {};
     HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data)
-        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true){};
+        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true, true){};
     ~HoldingRegister(){};
 
     uint8_t *getDataLocation(const uint16_t Address) override
@@ -152,12 +157,25 @@ public:
     {
         data[Address - FirstAddress] = ReceiveBigEndian ? byteSwap(value) : value;
     }
+
+    void const Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) override
+    {
+        memcpy(ResponseBuffer, getDataLocation(Address), getResponseByteCount(RegistersCount));
+        if ((SendBigEndian && EndiannessTest() == Little) || (!SendBigEndian && EndiannessTest() == Big))
+        {
+            uint16_t *ResponseBuffer16 = (uint16_t *)ResponseBuffer;
+            for (size_t i = 0; i < RegistersCount; i++)
+            {
+                ResponseBuffer16[i] = byteSwap(ResponseBuffer16[i]);
+            }
+        }
+    }
 };
 
 class Registers
 {
 private:
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
     uint8_t responseBuffer[64] = {0};
 #endif
     const vector<Register *> RegisterList;
@@ -246,12 +264,13 @@ public:
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters); // first
 
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
             response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
 #else
             response.RegisterValue.resize(response.DataByteCount);
 #endif
-            memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
+            // memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
+            reg->Read(PDU.Address, PDU.NumberOfRegisters, response.RegisterValue.data());
             break;
         case ModbusFunction::ReadHoldingRegisters:
         case ModbusFunction::ReadInputRegisters:
@@ -261,12 +280,13 @@ public:
                 break;
             }
             response.DataByteCount = reg->getResponseByteCount(PDU.NumberOfRegisters);
-#ifdef __AVR__
+#if defined(__AVR__) || defined(noStdArray)
             response.RegisterValue.setStorage(responseBuffer, response.DataByteCount);
 #else
             response.RegisterValue.resize(response.DataByteCount);
 #endif
-            memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
+            // memcpy(response.RegisterValue.data(), reg->getDataLocation(PDU.Address), response.DataByteCount);
+            reg->Read(PDU.Address, PDU.NumberOfRegisters, response.RegisterValue.data());
             break;
         case ModbusFunction::WriteSingleCoil:
         case ModbusFunction::WriteSingleHoldingRegister:
