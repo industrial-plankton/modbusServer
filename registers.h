@@ -49,11 +49,11 @@ public:
         : FirstAddress{FirstAddress}, LastAddress{LastAddress}, FunctionList{FunctionList} {};
     ~Register() {};
 
-    virtual uint8_t *getDataLocation(const uint16_t Address) = 0;
-    virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) = 0;
+    virtual uint8_t *getDataLocation(const uint16_t Address) const = 0;
+    virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) const = 0;
     virtual void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) = 0;
     virtual void WriteSingle(const uint16_t Address, const uint16_t value) = 0;
-    virtual const void Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) = 0;
+    virtual void Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) const = 0;
 
     bool AddressInRange(const uint16_t address) const
     {
@@ -82,11 +82,11 @@ public:
         : Register(FirstAddress, LastAddress, FunctionList), data{data} {};
     ~CoilRegister() {};
 
-    uint8_t *getDataLocation(const uint16_t Address) override
+    uint8_t *getDataLocation(const uint16_t Address) const override
     {
         return reinterpret_cast<uint8_t *>(data + (Address - FirstAddress));
     }
-    uint8_t getResponseByteCount(const uint8_t RegistersCount) override
+    uint8_t getResponseByteCount(const uint8_t RegistersCount) const override
     {
         return RegistersCount / 8 + ((RegistersCount % 8) ? 1 : 0);
     }
@@ -104,7 +104,7 @@ public:
         data[Address - FirstAddress] = value > 0;
     }
 
-    void const Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) override
+    void Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) const override
     {
         const auto AddressOffset = (Address - FirstAddress);
         const auto ResponseByteCount = getResponseByteCount(RegistersCount);
@@ -131,17 +131,17 @@ public:
         : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true, true) {};
     ~HoldingRegister() {};
 
-    uint8_t *getDataLocation(const uint16_t Address) override
+    uint8_t *getDataLocation(const uint16_t Address) const override
     {
         return reinterpret_cast<uint8_t *>(data + (Address - FirstAddress));
     }
-    uint8_t getResponseByteCount(const uint8_t RegistersCount) override
+    uint8_t getResponseByteCount(const uint8_t RegistersCount) const override
     {
         return RegistersCount * sizeof(data[0]);
     }
     void Write(const uint16_t Address, const uint8_t RegistersCount, uint8_t *dataBuffer) override
     {
-        if (ReceiveBigEndian)
+        if (ReceiveBigEndian && EndiannessTest() == Little)
         {
             uint16_t *dataBuffer16 = reinterpret_cast<uint16_t *>(dataBuffer);
             for (size_t i = 0; i < getResponseByteCount(RegistersCount) / 2; i++)
@@ -155,10 +155,10 @@ public:
     }
     void WriteSingle(const uint16_t Address, const uint16_t value) override
     {
-        data[Address - FirstAddress] = ReceiveBigEndian ? byteSwap(value) : value;
+        data[Address - FirstAddress] = !ReceiveBigEndian && EndiannessTest() == Little ? byteSwap(value) : value; // endianness is assumed Big in ParseRequestPDU and converted to little, this reverses that if needed
     }
 
-    void const Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) override
+    void Read(const uint16_t Address, const uint8_t RegistersCount, uint8_t *ResponseBuffer) const override
     {
         memcpy(ResponseBuffer, getDataLocation(Address), getResponseByteCount(RegistersCount));
         if ((SendBigEndian && EndiannessTest() == Little) || (!SendBigEndian && EndiannessTest() == Big))
@@ -310,11 +310,8 @@ public:
     uint8_t ProcessStream(uint8_t *ModbusFrame)
     {
         const auto Request = ParseRequestPDU(ModbusFrame);
-        Serial.println("ProcessRequest");
         const auto Response = this->ProcessRequest(Request);
-        Serial.println("Processed");
         const auto stream = ModbusResponsePDUtoStream(Response, ModbusFrame);
-        Serial.println("Stream Generated");
         return stream;
     }
 };
@@ -333,9 +330,7 @@ size_t ReceiveTCPStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
         return 0;
     }
 
-    Serial.println("ProcessStream");
     const auto size = registers.ProcessStream(ModbusFrame.data() + 7);
-    Serial.println("Processed");
     ModbusFrame[5] = size + 1;
     return 7 + size;
 }
