@@ -47,7 +47,7 @@ private:
 public:
     Register(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList)
         : FirstAddress{FirstAddress}, LastAddress{LastAddress}, FunctionList{FunctionList} {};
-    ~Register(){};
+    ~Register() {};
 
     virtual uint8_t *getDataLocation(const uint16_t Address) = 0;
     virtual uint8_t getResponseByteCount(const uint8_t RegistersCount) = 0;
@@ -80,7 +80,7 @@ private:
 public:
     CoilRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint8_t *data)
         : Register(FirstAddress, LastAddress, FunctionList), data{data} {};
-    ~CoilRegister(){};
+    ~CoilRegister() {};
 
     uint8_t *getDataLocation(const uint16_t Address) override
     {
@@ -128,8 +128,8 @@ public:
     HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data, bool ReceiveBigEndian, bool SendBigEndian)
         : Register(FirstAddress, LastAddress, FunctionList), data{data}, ReceiveBigEndian{ReceiveBigEndian}, SendBigEndian{SendBigEndian} {};
     HoldingRegister(uint16_t FirstAddress, uint16_t LastAddress, vector<ModbusFunction> FunctionList, uint16_t *data)
-        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true, true){};
-    ~HoldingRegister(){};
+        : HoldingRegister(FirstAddress, LastAddress, FunctionList, data, true, true) {};
+    ~HoldingRegister() {};
 
     uint8_t *getDataLocation(const uint16_t Address) override
     {
@@ -241,7 +241,7 @@ private:
 
 public:
     explicit Registers(vector<Register *> RegisterList) : RegisterList{RegisterList} {};
-    ~Registers(){};
+    ~Registers() {};
     ModbusResponsePDU ProcessRequest(ModbusRequestPDU PDU)
     {
         Register *reg = getRegister(PDU);
@@ -309,7 +309,13 @@ public:
     }
     uint8_t ProcessStream(uint8_t *ModbusFrame)
     {
-        return ModbusResponsePDUtoStream(this->ProcessRequest(ParseRequestPDU(ModbusFrame)), ModbusFrame);
+        const auto Request = ParseRequestPDU(ModbusFrame);
+        Serial.println("ProcessRequest");
+        const auto Response = this->ProcessRequest(Request);
+        Serial.println("Processed");
+        const auto stream = ModbusResponsePDUtoStream(Response, ModbusFrame);
+        Serial.println("Stream Generated");
+        return stream;
     }
 };
 
@@ -327,7 +333,9 @@ size_t ReceiveTCPStream(Registers &registers, array<uint8_t, BufferSize> &Modbus
         return 0;
     }
 
+    Serial.println("ProcessStream");
     const auto size = registers.ProcessStream(ModbusFrame.data() + 7);
+    Serial.println("Processed");
     ModbusFrame[5] = size + 1;
     return 7 + size;
 }
