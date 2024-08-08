@@ -22,13 +22,13 @@ private:
     EthernetClient &Client;
 
 public:
-    explicit EthernetClientStream(EthernetClient &client) : Client(client){};
-    ~EthernetClientStream(){};
+    explicit EthernetClientStream(EthernetClient &client) : Client(client) {};
+    ~EthernetClientStream() {};
 
     int available() override { return Client.available(); };
-    int read()override { return Client.read(); };
-    int peek() override{ return Client.peek(); };
-    size_t write(uint8_t b) override{ return Client.write(b); };
+    int read() override { return Client.read(); };
+    int peek() override { return Client.peek(); };
+    size_t write(uint8_t b) override { return Client.write(b); };
 };
 
 struct TCPServerInit
@@ -79,7 +79,7 @@ public:
           ShutdownTimeout{ServerSettings.ShutdownTimeout},
           server(ServerSettings.ServerPort),
           registers{registers} {};
-    ~StdTeenyModbusTCPServer(){};
+    ~StdTeenyModbusTCPServer() {};
 
     void Initialize(TCPServerInit InitData)
     {
@@ -89,9 +89,9 @@ public:
 
         // Listen for link changes
         Ethernet.onLinkState([](bool state)
-                             { printf("[Ethernet] Link %s\r\n", state ? "ON" : "OFF"); });
+                             { Serial.printf("[Ethernet] Link %s\r\n", state ? "ON" : "OFF"); });
 
-        printf("Starting Ethernet with static IP...\r\n");
+        Serial.printf("Starting Ethernet with static IP...\r\n");
         Ethernet.begin(InitData.staticIP, InitData.subnetMask, InitData.gateway);
 
         // When setting a static IP, the address is changed immediately,
@@ -100,13 +100,13 @@ public:
         {
             if (!Ethernet.waitForLink(InitData.LinkTimeout))
             {
-                printf("Failed to get link\r\n");
+                Serial.printf("Failed to get link\r\n");
                 // We may still see a link later, after the timeout, so
                 // continue instead of returning
             }
         }
 
-        printf("Starting server on port %u...", InitData.ServerPort);
+        Serial.printf("Starting server on port %u...", InitData.ServerPort);
         server.begin();
     }
 
@@ -142,9 +142,9 @@ public:
         if (client)
         {
             IPAddress ip = client.remoteIP();
-            printf("Client connected: %u.%u.%u.%u\r\n", ip[0], ip[1], ip[2], ip[3]);
+            Serial.printf("Client connected: %u.%u.%u.%u\r\n", ip[0], ip[1], ip[2], ip[3]);
             clients.emplace_back(std::move(client));
-            printf("Client count: %u\r\n", clients.size());
+            Serial.printf("Client count: %u\r\n", clients.size());
         }
     }
 
@@ -165,8 +165,8 @@ public:
                 if (millis() - state.closedTime >= ShutdownTimeout)
                 {
                     IPAddress ip = state.client.remoteIP();
-                    printf("Client shutdown timeout: %u.%u.%u.%u\r\n",
-                           ip[0], ip[1], ip[2], ip[3]);
+                    Serial.printf("Client shutdown timeout: %u.%u.%u.%u\r\n",
+                                  ip[0], ip[1], ip[2], ip[3]);
                     state.client.close();
                     state.closed = true;
                     continue;
@@ -177,7 +177,7 @@ public:
                 if (millis() - state.lastRead >= ClientTimeout)
                 {
                     IPAddress ip = state.client.remoteIP();
-                    printf("Client timeout: %u.%u.%u.%u\r\n", ip[0], ip[1], ip[2], ip[3]);
+                    Serial.printf("Client timeout: %u.%u.%u.%u\r\n", ip[0], ip[1], ip[2], ip[3]);
                     state.client.close();
                     state.closed = true;
                     continue;
@@ -211,8 +211,8 @@ public:
                 if (millis() - state.closedTime >= ShutdownTimeout)
                 {
                     IPAddress ip = state.client.remoteIP();
-                    printf("Client shutdown timeout: %u.%u.%u.%u\r\n",
-                           ip[0], ip[1], ip[2], ip[3]);
+                    Serial.printf("Client shutdown timeout: %u.%u.%u.%u\r\n",
+                                  ip[0], ip[1], ip[2], ip[3]);
                     state.client.close();
                     state.closed = true;
                     continue;
@@ -223,18 +223,25 @@ public:
                 if (millis() - state.lastRead >= ClientTimeout)
                 {
                     IPAddress ip = state.client.remoteIP();
-                    printf("Client timeout: %u.%u.%u.%u\r\n", ip[0], ip[1], ip[2], ip[3]);
+                    Serial.printf("Client timeout: %u.%u.%u.%u\r\n", ip[0], ip[1], ip[2], ip[3]);
                     state.client.close();
                     state.closed = true;
                     continue;
                 }
             }
         }
+
+        // This looks stupid, but it's required as remove_if() doesn't shrink the vector
+        clients.erase(std::remove_if(clients.begin(), clients.end(),
+                                     [](const auto &state)
+                                     { return state.closed; }),
+                      clients.end());
+
         if (clients.empty())
         {
             return {.exists = false};
         }
-        return {.exists = true, .client = clients.front().client};
+        return {.exists = true, .client = clients.back().client};
     }
 };
 
