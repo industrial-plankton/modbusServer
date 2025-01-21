@@ -23,7 +23,7 @@ namespace ModbusServer
         vector<Register *> asVec(RegistersArray);
         Registers regs(asVec);
 #else
-        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::WriteMultipleHoldingRegisters}, LocalValues, false);
+        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::WriteMultipleHoldingRegisters}, LocalValues, false, false);
         Registers regs(std::vector<Register *>{&LocalHoldingRegister});
 #endif
 
@@ -79,7 +79,7 @@ namespace ModbusServer
         TEST_ASSERT_EQUAL(1, asVec.size());
         Registers regs(asVec);
 #else
-        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::WriteMultipleHoldingRegisters}, LocalValues, false);
+        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::WriteMultipleHoldingRegisters}, LocalValues, false, false);
         Registers regs(std::vector<Register *>{&LocalHoldingRegister});
 #endif
         uint16_t RequestValues[2] = {2, 3};
@@ -157,7 +157,7 @@ namespace ModbusServer
         vector<Register *> asVec(RegistersArray, 1);
         Registers regs(asVec);
 #else
-        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::WriteMultipleHoldingRegisters}, reinterpret_cast<uint16_t *>(LocalValues), false);
+        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::WriteMultipleHoldingRegisters}, reinterpret_cast<uint16_t *>(LocalValues), false, false);
         Registers regs(std::vector<Register *>{&LocalHoldingRegister});
 #endif
 
