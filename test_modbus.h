@@ -1,5 +1,5 @@
-#include <registers.h>
 #include "unity.h"
+#include <registers.h>
 
 namespace ModbusServer
 {
@@ -349,4 +349,4 @@ namespace ModbusServer
         RUN_TEST(test_Server_WriteMultipleCoils);
         tearDown();
     }
-}
+} // namespace ModbusServer
