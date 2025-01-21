@@ -125,7 +125,7 @@ namespace ModbusServer
         vector<Register *> asVec(RegistersArray, 1);
         Registers regs(asVec);
 #else
-        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::ReadHoldingRegisters}, LocalValues);
+        HoldingRegister LocalHoldingRegister(0, 3, std::vector<ModbusFunction>{ModbusFunction::ReadHoldingRegisters}, LocalValues, false, false);
         Registers regs(std::vector<Register *>{&LocalHoldingRegister});
 #endif
 
